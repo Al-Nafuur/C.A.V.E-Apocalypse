@@ -38,20 +38,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if( $isWebEmulator)
         header('Access-Control-Allow-Origin: *');
 
-//    include("php_img/cave_apocalypse_1.php");
-
     $game_status = $cache->get( $PlusStoreId );
-    $action = empty($game_status)?0:array_pop($post_array);
+    $req = empty($game_status)?0:array_pop($post_array) ;
+    $action = $req & 127;
+    $tv_mode = ( ($req & 128) == 128)?1:0; // 0=NTSC 1=PAL
     if( $action == 0 || $action == 48 ){
         $game_status = ["r" => 0, "l" => 1, "s" => []];
         include("./data/Level_1/Room_00.php");
     }elseif($action == 1){ // end level goto next level
         $game_status["l"]++;
-        if(! is_dir("./data/Level_".$game_status["l"])){ // start in level 0 again after last level?
-            $game_status["l"] = 0;
+        if(! is_dir("./data/Level_".$game_status["l"])){ // start in level 1 again after last level?
+            $game_status["l"] = 1;
         }
         $game_status["r"] = 0;
         $game_status["s"] = [];
+        include("./data/Level_".$game_status["l"]."/Room_00.php");
+    }elseif($action == 7){ //live lost reset level
+        $game_status["r"] = 0;
+        $game_status["s"] = [];
+        include("./data/Level_".$game_status["l"]."/Room_00.php");
     }elseif($action == 2){ // game lost
         $cache->delete( $PlusStoreId );
         header('Content-Length: 1' );
@@ -70,6 +75,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     $resp = ""; // = file_get_contents(); // binary room definition from file..
+
+    $cl_len = count($room["color_".$tv_mode]);
+    for ( $pos=0; $pos < $cl_len; $pos++ ) {
+        $resp .= chr($room["color_".$tv_mode][$pos]);
+    }
 
     // check if we have been in this room before.
     if(isset($game_status["s"][$game_status["r"]]) && count($game_status["s"][$game_status["r"]]) > 0 ){// add extra wall and enemy status from session cache!
@@ -90,7 +100,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     $resp_len = strlen($resp);
-    file_put_contents ("../../extras/clog/cave-apocalypse.log", "action: ".$actions[$action]." room: ".$game_status["r"]." cache_len: ".count($game_status["s"])." respsize ".$resp_len."\n", FILE_APPEND );
+    file_put_contents ("../../extras/clog/cave-apocalypse.log", "action: ".$actions[$action]." to room: ".$game_status["r"]." lvl: ".$game_status["l"]." TV: ".$tv_mode." cache_len: ".count($game_status["s"])." respsize ".$resp_len."\n", FILE_APPEND );
     header('Content-Length: '.($resp_len + 1) );
 
     echo chr($resp_len).$resp;
