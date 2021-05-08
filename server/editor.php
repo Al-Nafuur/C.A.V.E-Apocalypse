@@ -33,7 +33,7 @@ function addRow(append){
     if(append)
         $('#LevelMap tr.grid:last').after('<tr class="grid">' + tCell.repeat(rows) + '</tr>');
     else
-        $('#LevelMap tr.grid:last').before('<tr class="grid">' + tCell.repeat(rows) + '</tr>');
+        $('#LevelMap tr.grid:first').before('<tr class="grid">' + tCell.repeat(rows) + '</tr>');
 }
 
 function addColumn(append){
@@ -89,7 +89,7 @@ $(document).ready(function() {
         include($filename);
         $room_id = basename($filename, ".php");
         if($room_id != "Room_0"){
-            // find a Room that is allready rendered in the exits of the new room here.
+            // find a Room that is already rendered in the exits of the new room here.
             foreach($room["exit"] As $id => $exit_id ){
                 $exit = sprintf("%'.02d", $exit_id);
                 if(in_array ("Room_".$exit, $rooms_rendered) ){
