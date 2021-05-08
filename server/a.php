@@ -7,14 +7,6 @@ function loging($PlusStoreId, $post_array, $post_data_len){
 
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-/*
-    if(sleep(1) !== false){
-        file_put_contents ("../../extras/clog/cave-apocalypse.log", "sleep success " , FILE_APPEND );
-    }else{
-        file_put_contents ("../../extras/clog/cave-apocalypse.log", "sleep failed " , FILE_APPEND );
-    }
-*/
-
     $PlusStoreId = $_SERVER['HTTP_PLUSSTORE_ID'];
     $PlusStoreId_parts   = explode(" ", $PlusStoreId);
     $device_id           = array_pop( $PlusStoreId_parts );
@@ -27,7 +19,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $post_data = file_get_contents("php://input");
     $post_data_len = strlen($post_data);
     $post_array = [];
-    $actions = ["load", "level-up", "game-over", "Left","Up","Right","Down"];
+    $actions = ["Load", "Level-Up", "Game-Over", "Left","Up","Right","Down","Reset"];
     for ( $pos=0; $pos < $post_data_len; $pos ++ ) {
         $post_array[] = ord(substr($post_data, $pos));
     }
@@ -39,12 +31,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         header('Access-Control-Allow-Origin: *');
 
     $game_status = $cache->get( $PlusStoreId );
-    $req = empty($game_status)?0:array_pop($post_array) ;
-    $action = $req & 127;
-    $tv_mode = ( ($req & 128) == 128)?1:0; // 0=NTSC 1=PAL
+    $req = array_pop($post_array) ;
+    $action = empty($game_status)?0:($req & 127);
+    $tv_mode = ($req > 127)?1:0; // 0=NTSC 1=PAL
     if( $action == 0 || $action == 48 ){
         $game_status = ["r" => 0, "l" => 1, "s" => []];
-        include("./data/Level_1/Room_00.php");
+        include("./data/Level_".$game_status["l"]."/Room_00.php");
     }elseif($action == 1){ // end level goto next level
         $game_status["l"]++;
         if(! is_dir("./data/Level_".$game_status["l"])){ // start in level 1 again after last level?
@@ -53,7 +45,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $game_status["r"] = 0;
         $game_status["s"] = [];
         include("./data/Level_".$game_status["l"]."/Room_00.php");
-    }elseif($action == 7){ //live lost reset level
+    }elseif($action == 7){ // live lost reset level
         $game_status["r"] = 0;
         $game_status["s"] = [];
         include("./data/Level_".$game_status["l"]."/Room_00.php");
