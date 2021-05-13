@@ -35,7 +35,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = empty($game_status)?0:($req & 127);
     $tv_mode = ($req > 127)?1:0; // 0=NTSC 1=PAL
     if( $action == 0 || $action == 48 ){
-        $game_status = ["r" => 0, "l" => 1, "s" => []];
+        $level = 1;
+        $game_status = ["r" => 0, "l" => $level, "sr" => 0,  "s" => []];
         include("./data/Level_".$game_status["l"]."/Room_00.php");
     }elseif($action == 1){ // end level goto next level
         $game_status["l"]++;
@@ -43,13 +44,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $game_status["l"] = 1;
         }
         $game_status["r"] = 0;
+        $game_status["sr"] = 0;
         $game_status["s"] = [];
         include("./data/Level_".$game_status["l"]."/Room_00.php");
-    }elseif($action == 7){ // live lost reset level
-        $game_status["r"] = 0;
-        $game_status["s"] = [];
-        include("./data/Level_".$game_status["l"]."/Room_00.php");
-    }elseif($action == 2){ // game lost
+    }elseif($action == 7){ // live lost reset to last safe point
+        $game_status["r"] = $game_status["sr"]; 
+        include("./data/Level_".$game_status["l"]."/Room_".sprintf("%'.02d",$game_status["r"]).".php");
+    }elseif($action == 8){ // save point (fuel station) in current room reached
+        $game_status["sr"] = $game_status["r"];
+        $cache->save( $PlusStoreId , $game_status, 360 ); // cache for 6 min!
+        header('Content-Length: 1' );
+        echo chr(0);
+        exit;
+    }elseif($action == 2){ // game lost (todo save points for this level in High Score List)
         $cache->delete( $PlusStoreId );
         header('Content-Length: 1' );
         echo chr(0);
@@ -66,7 +73,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    $resp = ""; // = file_get_contents(); // binary room definition from file..
+    $resp = chr($room["first_last"]);
 
     $cl_len = count($room["color_".$tv_mode]);
     for ( $pos=0; $pos < $cl_len; $pos++ ) {
@@ -74,13 +81,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     // check if we have been in this room before.
-    if(isset($game_status["s"][$game_status["r"]]) && count($game_status["s"][$game_status["r"]]) > 0 ){// add extra wall and enemy status from session cache!
+    if(isset($game_status["s"][$game_status["r"]]) && count($game_status["s"][$game_status["r"]]) > 0 ){
+        // add extra wall and enemy status from session cache!
         $ew_len = count($game_status["s"][$game_status["r"]]);
         for ( $pos=0; $pos < $ew_len; $pos ++ ) {
             $resp .= chr($game_status["s"][$game_status["r"]][$pos]);
         }
 
-    }else{// add extra wall and enemy status from room definition!
+    }else{
+        // add extra wall and enemy status from room definition!
         $ew_len = count($room["interior"]);
         for ( $pos=0; $pos < $ew_len; $pos ++ ) {
             $resp .= chr($room["interior"][$pos]);

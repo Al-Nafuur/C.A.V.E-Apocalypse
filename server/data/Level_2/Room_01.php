@@ -5,5 +5,5 @@ $room = [
  'color_0' => [0xC2,0xC4,0,0,0,0xC6],
  'color_1' => [0x52,0x54,0,0,0,0x56],
  'exit' => [ 0,-1,-1,2],
- 'first_last' => 0
+ 'first_last' => 1
 ];

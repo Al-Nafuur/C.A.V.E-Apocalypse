@@ -13,74 +13,9 @@ $level = ($_GET["level"] && ( preg_match('/^Level_\d+$/', $_GET["level"]) || pre
  <link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css"> 
  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
 
+ <link rel="stylesheet" href="./assets/css/editor.css"> 
+ <script src="./assets/js/editor.js"></script>
 <script>
-var tCell = '<td class="grid"><span onclick="addRoom()" class="w3-button w3-blue">+Room</span></td>';
-
-function showPlayerInfo(room){
-    $("#room_content").load("edit-room.php?room=" + encodeURIComponent(room));
-    $("#room_editor h2").text("Edit Room " + room);
-    document.getElementById('room_editor').style.display="block";
-    return false;
-}
-
-function openLightbox(img_hash){
-    $("#patch_lightbox").html('<span class="w3-button w3-hover-red w3-xlarge w3-display-topright">&times;</span>' +
-                              '<div class="w3-modal-content w3-animate-zoom"><img src="/directus/public/plusrom-high-score-club/assets/' + img_hash + '?key=lightbox" style="width:100%"></div>').show();
-}
-
-function addRow(append){
-    var rows = $("#LevelMap").find("tr.grid:first td.grid").length;
-    if(append)
-        $('#LevelMap tr.grid:last').after('<tr class="grid">' + tCell.repeat(rows) + '</tr>');
-    else
-        $('#LevelMap tr.grid:first').before('<tr class="grid">' + tCell.repeat(rows) + '</tr>');
-}
-
-function addColumn(append){
-    $('#LevelMap tr.grid').each(function(){
-        var trow = $(this);
-        if(append){
-            trow.append(tCell);
-        } else {
-            trow.prepend(tCell);
-        }
-    });
-}
-
-function renderSmallRoom( room ){ 
-//    var ar = [ [0xff,room.pf[3],room.pf[6] ],  [room.pf[0],room.pf[2],room.pf[5]],  [0xff,room.pf[1],room.pf[4] ] ];
-    var pos_brk_wall = room.interior[5] - 15;// (room.brk_wall & 0xFC) - 8; // 8 - 152  (0x08 - 0x98)
-    var pos_eny_bot = 200;//(room.eny_lmp[0] & 0xFC) - 8; // 8 - 152  (0x08 - 0x98)
-    var pos_eny_mid = 200;//(room.eny_lmp[1] & 0xFC) - 8; // 8 - 152  (0x08 - 0x98)
-    var pos_lmp_top = 200;//(room.eny_lmp[2] & 0xFC) - 8; // 8 - 152  (0x08 - 0x98)
-    var eny_color = ["yellow", "green", "blue", "magenta" ];
-    var ret = '';
-    ret += '<table border="0" cellpadding="0" cellspacing="0"><tr>';
-    room.pf.forEach( (pf_b, block_id) => {
-        var i = 0;
-        for(; i<8; i++){
-            var mask = (block_id % 2 == 0)?(2 ** (7-i)):(2 ** i);
-            ret += "<td style=\"background" + ((pf_b & mask)>0?"-color: brown":": rgba(0, 0, 0, 0)")  + "\">&nbsp</td>"
-        }
-        if(block_id == 3 || block_id == 7)
-            ret += "</tr><tr>";
-    });
-    ret += "</tr></table>";
-    if(pos_brk_wall >= 0 &&  pos_brk_wall <= 144){
-        ret += '<div class="brk_wall" style="left: ' + pos_brk_wall + 'px; ' + ((room.interior[4] > 0) ? 'animation: magma_wall 2s infinite alternate' :'background-color: brown') + '"></div>';
-    }
-    if(pos_eny_bot >= 0 &&  pos_eny_bot <= 144){
-        ret += '<div class="eny_bot" style="left: ' + pos_eny_bot + 'px; background-color: ' +  eny_color[(room.eny_lmp[0] & 3)] + '"></div>';
-    }
-    if(pos_eny_mid >= 0 &&  pos_eny_mid <= 144){
-        ret += '<div class="eny_mid" style="left: ' + pos_eny_mid + 'px; background-color: ' + eny_color[(room.eny_lmp[1] & 3)] + '"></div>';
-    }
-    if(pos_lmp_top >= 0 &&  pos_lmp_top <= 144){
-        ret += '<div class="lmp_top" style="left: ' + pos_lmp_top + 'px; background-color: white;"></div>';
-    }
-    return ret;
-}
-
 $(document).ready(function() {
 <?
     $rooms_rendered = [];
@@ -123,60 +58,7 @@ $(document).ready(function() {
 
 });
 </script>
-<style>
-body {background-color: #37609f; font-family: 'Droid Sans', 'Helvetica', 'Arial', sans-serif; color: #333}
-.box {width:80%; border: 2px solid black; padding:10px; margin: auto}
-@media only screen and (max-device-width: 640px) {
-   .box {width:100%; border: 0; padding:0px}
-   .w3-bar .w3-bar-item { padding: 8px 4px}
-}
-.nav-box {background-image: linear-gradient(to right, #37609f 0%, #67b9DD 80%)}
-.content-box {background-color: #f0f0f0; margin-top: 10px }
-.level-map {overflow-x: scroll}
-.description {background-color: #ccc; padding: 0 5px; margin: 5px 0 0 0; max-height: 220px; overflow-y: auto;}
-h1 a {color: #fff; text-decoration: none}
-.nav-box label {color: #fff; font-weight: bold; padding: 20px 16px; display: block; background-color: #000}
-#LevelMap, td.grid { border: 1px solid black; border-collapse: collapse; margin:auto; }
-.thumbnail:hover { cursor:zoom-in }
-td.grid { background-color: black}
-.brk_wall {
- position: relative;
- width: 8px;
- height: 22.5px;
- top: -45px;
- margin-bottom: -22.5px;
-}
-.lmp_top {
- position: relative;
- width: 8px;
- height: 22.5px;
- top: -67.5px;
- margin-bottom: -22.5px;
- z-index: -2;
-}
 
-.eny_mid {
- position: relative;
- width: 8px;
- height: 22.5px;
- top: -45px;
- margin-bottom: -22.5px;
-}
-.eny_bot {
- position: relative;
- width: 8px;
- height: 22.5px;
- top: -22.5px;
- margin-bottom: -22.5px;
-}
-
-@keyframes magma_wall {
-  from {background-color: #440008;}
-  to {background-color: #960640;}
-}
-
-
-</style>
 </head>
 <body>
 
