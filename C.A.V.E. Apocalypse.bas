@@ -26,7 +26,8 @@
 
    const scback = #$08
 
-   const response_size_minus_1 = 24 ; = (w127 - w_room_definition_start - 1)
+   const response_size_minus_1 = 26 ; = (w127 - w_room_definition_start - 1)
+   const response_menu_size = 6
 
 
 ;  NTSC constants and colors
@@ -40,6 +41,7 @@
    const req_move_down   = 6
    const req_level_reset = 7
    const req_safe_point  = 8
+   const req_load_menu   = 9
    ; colors
    const _00 = $00
    const _02 = $02
@@ -182,6 +184,7 @@
    const req_move_down   = 134
    const req_level_reset = 135
    const req_safe_point  = 136
+   const req_load_menu   = 137
    ; colors
    const _00 = $00
    const _02 = $02
@@ -311,6 +314,7 @@
    const _FA = $2A
    const _FC = $2C
    const _FE = $2E
+
 */
 ; Variables
    dim _sc1 = score
@@ -348,9 +352,10 @@
    dim roommate_move_x = j
    dim roommate_type = k
 
-   dim _BitOp_Safe_Point        = l
-   dim _Bit0_Safe_Point_reached = l
-   dim _Bit1_Safe_Point_P1_Flip  = l
+   dim _BitOp_Safe_Point_New_Room = l
+   dim _Bit0_Safe_Point_reached   = l
+   dim _Bit1_Safe_Point_P1_Flip   = l
+   dim _Bit2_New_Room_Flip_P1     = l
    dim Safe_Point_P1_x  = m
    dim Safe_Point_P1_y  = n
 
@@ -380,51 +385,70 @@
    dim _Bit6_Flip_P1          = y
    dim _Bit7_M0_Moving        = y
 
-; SuperChip RAM used for room definitions before playfield area (w112/r112)
-   dim w_room_definition_start      = w099
+   dim new_room_player1y     = var0
+   dim new_room_player1x     = var1
+   dim gamenumber            = var2
 
-   dim r_BitOp_room_type            = r099
-   dim w_BitOp_room_type            = r099
-   dim r_Bit0_room_type_top         = r099
-   dim r_room_color_top             = r100
-   dim w_room_color_top             = w100
-   dim r_room_color_middle          = r101
-   dim w_room_color_middle          = w101
-   dim r_room_color_bottom          = r105
-   dim w_room_color_bottom          = w105
-   dim r_roommate_type_and_range    = r106 ; $03 is P0 type (00=enemy, 01=air missile, 10=Fuel station, 11=soldier)
-   dim w_roommate_type_and_range    = w106
-   dim r_roommate_startpos_y        = r107
-   dim w_roommate_startpos_y        = w107
-   dim r_roommate_startpos_x        = r108
-   dim w_roommate_startpos_x        = w108
-   dim r_extra_wall_width           = r109 ; wall width (D4 and D5) for CTRLPF
-   dim w_extra_wall_width           = w109
-   dim r_extra_wall_type            = r110 ; type ($03) and wall range or blink frequenz (laser!)
-   dim w_extra_wall_type            = w110
-   dim r_extra_wall_startpos_x      = r111
-   dim w_extra_wall_startpos_x      = w111
+   dim max_pub_level_bcd1  = var3
+   dim max_pub_level_bcd2  = var4
+   dim max_pub_level_bcd3  = var5
+   dim max_priv_level_bcd1 = var6
+   dim max_priv_level_bcd2 = var7
+   dim max_priv_level_bcd3 = var8
+
+
+; SuperChip RAM used for room definitions before playfield area (w112/r112)
+   dim w_room_definition_start      = w097
+
+   dim r_BitOp_room_type            = r097
+   dim w_BitOp_room_type            = r097
+   dim r_Bit0_room_type_top         = r097
+   dim r_room_color_top             = r098
+   dim w_room_color_top             = w098
+   dim r_room_color_middle          = r099
+   dim w_room_color_middle          = w099
+   dim r_room_color_bottom          = r103
+   dim w_room_color_bottom          = w103
+   dim r_roommate_type_and_range    = r104 ; $03 is P0 type (00=enemy, 01=air missile, 10=Fuel station, 11=soldier)
+   dim w_roommate_type_and_range    = w104 ; $FC and $03 is moving range to the right
+   dim r_roommate_startpos_x        = r105
+   dim w_roommate_startpos_x        = w105
+   dim r_roommate_startpos_y        = r106
+   dim w_roommate_startpos_y        = w106
+   dim r_extra_wall_type_and_range  = r107 ; type ($03) and wall range or blink frequenz (laser!)
+   dim w_extra_wall_type_and_range  = w107
+   dim r_extra_wall_width           = r108 ; wall width (D4 and D5) for CTRLPF
+   dim w_extra_wall_width           = w108
+   dim r_extra_wall_height          = r109 ; wall height default (23)
+   dim w_extra_wall_height          = w109
+   dim r_extra_wall_startpos_x      = r110
+   dim w_extra_wall_startpos_x      = w110
+   dim r_extra_wall_startpos_y      = r111 ; default 47
+   dim w_extra_wall_startpos_y      = w111
 
 
 _Start
-   WriteSendBuffer = req_load : _Bit5_Request_Pending{5} = 1
-   frame_counter = 0 : COLUP0 = _1C
-   score = 0 : pfscore1 = %00101010 : pfscore2 = 255 : pfscorecolor = _1C : scorecolor = _0E
-   player1x = 30 : player1y = 0
-   AUDV0 = 0 : AUDV1 = 0 : _Bit_Game_State = 0
+   asm
+   lda #0
+   ldx #75
+.clear_ram
+   dex
+   sta var0,x 
+   bne .clear_ram
+end
+
+   WriteSendBuffer = req_load_menu : _Bit5_Request_Pending{5} = 1 : COLUP0 = _1C
+   gamenumber = 1 : score = 1 : scorecolor = _0E
+   player1x = 30 : player1y = 0 ; disable player1 on startscreen 
+   new_room_player1y = player_min_y : new_room_player1x = 30
+   AUDV0 = 0 : AUDV1 = 0
    missile0x = 200 : missile0y = 200 : missile0height = 1 : bally = 0
    w_extra_wall_startpos_x = 200   ; disable extra wall on start screen
    w_roommate_startpos_y = 200 : player0y = 200 : player0x = 0 ; disable player0 on startscreen
 
-   Safe_Point_P1_x = 30 : Safe_Point_P1_y = 0 : _BitOp_Safe_Point = 0
+   Safe_Point_P1_x = 30 : Safe_Point_P1_y = player_min_y
 
    pfclear
-   playfield:
-   XXXXXXXXXXXX.......XXXXXXXXXXXXX
-   XXXXX.....................XXXXXX
-   XXXXXXXXXXXX.......XXXXXXXXXXXXX
-end
-
    player1color:
    _1E
    _82
@@ -436,28 +460,71 @@ end
    _08
 end
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; Title Menu
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+_titlescreen_menu
+   COLUBK = _00
+
+   gosub titledrawscreen bank2
+
+   if delay_counter > 0 then delay_counter = delay_counter - 1 : goto _titlescreen_menu
+
+   if ReceiveBufferSize < response_menu_size then _Skip_Read_Menu_Response
+   _Bit5_Request_Pending{5} = 0
+   max_pub_level_bcd1 = ReceiveBuffer
+   max_pub_level_bcd2 = ReceiveBuffer
+   max_pub_level_bcd3 = ReceiveBuffer
+   max_priv_level_bcd1 = ReceiveBuffer
+   max_priv_level_bcd2 = ReceiveBuffer
+   max_priv_level_bcd3 = ReceiveBuffer
+_Skip_Read_Menu_Response
+
+   if _Bit5_Request_Pending{5} then _titlescreen_menu ; wait for menu response
+
+   if joy0left then score = score - 100 : delay_counter = 5
+   if joy0down then score = score - 1 : delay_counter = 5
+   if joy0right then score = score + 100 : delay_counter = 5
+   if joy0up then score = score + 1 : delay_counter = 5
+
+   ; asm compare of a 3 bcd number, adapted by Karl G with input from bogax.
+   asm
+   sed                              ; Set the Decimal Mode Flag
+   lda max_pub_level_bcd3           ; Load the Accumulator
+   cmp _sc3                         ; Compare Memory and the Accumulator
+   lda max_pub_level_bcd2           ; Load the Accumulator
+   sbc _sc2                         ; Subtract With Carry
+   lda max_pub_level_bcd1           ; Load the Accumulator
+   sbc _sc1                         ; Subtract With Carry
+   cld                              ; Clear the Decimal Flag
+   bcs ._Skip_Level_Reset           ; Branch if Carry Set
+                                    ; (goto label if carry is set)
+end
+   score = 1
+
+_Skip_Level_Reset
+   if _sc1 = 0 && _sc2 = 0 && _sc3 = 0 then _sc1 = max_pub_level_bcd1 : _sc2 = max_pub_level_bcd2 : _sc3 = max_pub_level_bcd3
+
+   if switchselect then gamenumber = gamenumber + 1 : delay_counter = 20 : if gamenumber > 2 then gamenumber = 1
+   if !joy0fire then goto _titlescreen_menu
+
+   WriteToBuffer = _sc1 : WriteToBuffer = _sc2 : WriteToBuffer = _sc3 : WriteToBuffer = gamenumber : WriteSendBuffer = req_load : _Bit5_Request_Pending{5} = 1
+
+   player1y = player_min_y : score = 0 : _Bit4_Game_Over{4} = 0
+   pfscore1 = %00101010 : pfscore2 = 255 : pfscorecolor = _1C
 
 ; My hack to move pfcolortable to SC RAM read port...
-   w_room_color_top = _22 : w_room_color_middle = _24 : w_room_color_bottom = _26 ; default colors for title screen
    asm
    lda	#>(r_room_color_middle-132+pfres*pfwidth)
    sta	pfcolortable+1
    lda	#<(r_room_color_middle-132+pfres*pfwidth)
    sta	pfcolortable
 end
-_inital_wait
-   COLUPF = r_room_color_top
-   COLUBK = _00
-   asm ; read joystick and console switches for PlusCart exit function 
-   lda SWCHA
-   lda SWCHB
-end
-   drawscreen
-   if  ! joy0fire then goto _inital_wait
 
-   player1y = player_min_y
-   
-   _Bit4_Game_Over{4} = 0
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; Main Loop
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 __Main_Loop
    COLUPF = r_room_color_top
@@ -574,21 +641,20 @@ end
 _roommate_End_def
 
 ; compute movement of enemy, wall and soldiers
-   if r_extra_wall_type < 4 then _Skip_Wall_Movement
-   if _Bit1_Wall_Dir{1} then _Wall_move_left
-   if frame_counter{4} then extra_wall_move_x = extra_wall_move_x + 1 : if extra_wall_move_x = r_extra_wall_type then _Bit1_Wall_Dir{1} = 1
-   goto _Skip_Wall_Movement
-_Wall_move_left
-   if frame_counter{4} then extra_wall_move_x = extra_wall_move_x - 1 : if !extra_wall_move_x then _Bit1_Wall_Dir{1} = 0
+   if !frame_counter{4} then _Skip_Wall_Movement
+   if r_extra_wall_type_and_range < 4 then _Finish_Interior_Movement
+   if _Bit1_Wall_Dir{1} then extra_wall_move_x = extra_wall_move_x - 1 else extra_wall_move_x = extra_wall_move_x + 1
+   if extra_wall_move_x = r_extra_wall_type_and_range then _Bit1_Wall_Dir{1} = 1
+   if !extra_wall_move_x then _Bit1_Wall_Dir{1} = 0
+   goto _Finish_Interior_Movement
 _Skip_Wall_Movement
 
-   if r_roommate_type_and_range < 4 then _Skip_Enemy_Movement
-   if _Bit0_roommate_Dir{0} then _Enemy_move_left
-   if !frame_counter{4} then roommate_move_x = roommate_move_x + 1 : if roommate_move_x = r_roommate_type_and_range then _Bit0_roommate_Dir{0} = 1
-   goto _Skip_Enemy_Movement
-_Enemy_move_left
-   if !frame_counter{4} then roommate_move_x = roommate_move_x - 1 : if !roommate_move_x then _Bit0_roommate_Dir{0} = 0
-_Skip_Enemy_Movement
+   if r_roommate_type_and_range < 4 then _Finish_Interior_Movement
+   if _Bit0_roommate_Dir{0} then roommate_move_x = roommate_move_x - 1 else roommate_move_x = roommate_move_x + 1
+   if roommate_move_x = r_roommate_type_and_range then _Bit0_roommate_Dir{0} = 1
+   if !roommate_move_x then _Bit0_roommate_Dir{0} = 0
+
+_Finish_Interior_Movement
 
    frame_counter = frame_counter + 1
 
@@ -616,7 +682,7 @@ _Skip_enemy
 ; Check buffer and request status
    if delay_counter > 0 then delay_counter = delay_counter - 1 : goto _skip_game_action
 
-   if ReceiveBufferSize > response_size_minus_1 then goto change_room
+   if ReceiveBufferSize > response_size_minus_1 then goto _Change_Room
 
    if _Bit5_Request_Pending{5} || _Bit4_Game_Over{4} then goto _skip_game_action ; game over screen or wait for new room
 
@@ -757,8 +823,8 @@ __Skip_Fire
    ;  Skips rest of section if no collision.
    if !collision(playfield,missile0) then goto __Skip_Missile
 
-   ;  Turns on sound effect.
-;   if _Ch0_Sound <> 3 then _Ch0_Sound = 4 : _Ch0_Duration = 1 : _Ch0_Counter = 0
+   ;  Turns on sound effect for missile0 hits playfield.
+   ;if _Ch0_Sound <> 3 then _Ch0_Sound = 4 : _Ch0_Duration = 1 : _Ch0_Counter = 0
 
 __Delete_Missile
 
@@ -793,7 +859,7 @@ __Skip_Shot_Enemy
    _Bit7_M0_Moving{7} = 0 : missile0x = 200 : missile0y = 200
 
    ;  Turns on sound effect and clear wall from screen, if it is not a moving wall.
-   if r_extra_wall_type > 3 then __Skip_Shot_Extra_Wall
+   if r_extra_wall_type_and_range > 3 then __Skip_Shot_Extra_Wall
 
    _Ch0_Sound = 1 : _Ch0_Duration = 1 : _Ch0_Counter = 0
    w_extra_wall_startpos_x = 200 : bally = 0 : score = score + 10
@@ -810,7 +876,7 @@ __Skip_Shot_Extra_Wall
    ;  Friend touched.
    if _Ch0_Sound <> 3 then _Ch0_Sound = 3 : _Ch0_Duration = 1 : _Ch0_Counter = 0
    if roommate_type = 3 then _Bit2_Level_finished{2} = 1 : player0y = 200 : w_roommate_startpos_y = 200 : score = score + frame_counter : goto _skip_game_action
-   if roommate_type = 2 then pfscore2 = pfscore2 * 2 | 1 : player1y = player1y - 1 : if !_Bit0_Safe_Point_reached{0} then WriteSendBuffer = req_safe_point : _Bit0_Safe_Point_reached{0} = 1 : Safe_Point_P1_x = player1x : Safe_Point_P1_y = player1y : _Bit1_Safe_Point_P1_Flip{1} = _Bit6_Flip_P1{6}
+   if roommate_type = 2 then P1y_velocity = 0.0 : x = 0 : pfscore2 = pfscore2 * 2 | 1 : player1y = player1y - 1 : if !_Bit0_Safe_Point_reached{0} then WriteSendBuffer = req_safe_point : _Bit0_Safe_Point_reached{0} = 1 : Safe_Point_P1_x = player1x : Safe_Point_P1_y = player1y : _Bit1_Safe_Point_P1_Flip{1} = _Bit6_Flip_P1{6}
 __Skip_P1_Touched_P0
 
    ;  player/(ball, playfield) collision check.
@@ -820,9 +886,8 @@ __Skip_P1_Touched_P0
 
    _BitOp_P1_Dir = _BitOp_P1_Dir & $F0 ; delete old directions (do we still need this?)
 
-   if joy0up then P1y_velocity = 0.0 : player1y = player1y - 1 : _Bit0_P1_Dir_Up{0} = 1 : x = 0 : goto skip_gravity
-   if joy0down then P1y_velocity = 0.0 : player1y = player1y + 1 : _Bit1_P1_Dir_Down{1} = 1 : x = 0 : goto skip_gravity
-
+   if joy0up then P1y_velocity = 0.0 : x = 0 : player1y = player1y - 1 : _Bit0_P1_Dir_Up{0} = 1 : goto skip_gravity
+   if joy0down then player1y = player1y + 1 : _Bit1_P1_Dir_Down{1} = 1
 
    rem apply gravity
    P1y_velocity = P1y_velocity + gravity_player1
@@ -837,10 +902,10 @@ _skip_move
    ; dont leave top rooms to the top.
    if player1y < player_min_y && r_Bit0_room_type_top{0} then player1y = player_min_y : goto _skip_game_action
 ; check for leaving the room
-   if player1x < player_min_x then player1x = player_max_x : gosub _send_room_state : WriteSendBuffer = req_move_left : goto _skip_game_action
-   if player1y < player_min_y then player1y = player_max_y : gosub _send_room_state : WriteSendBuffer = req_move_up : goto _skip_game_action
-   if player1x > player_max_x then player1x = player_min_x : gosub _send_room_state : WriteSendBuffer = req_move_right : goto _skip_game_action
-   if player1y > player_max_y then player1y = player_min_y : gosub _send_room_state : WriteSendBuffer = req_move_down : goto _skip_game_action
+   if player1x < player_min_x then _Bit2_New_Room_Flip_P1{2} = _Bit6_Flip_P1{6} : new_room_player1y = player1y : new_room_player1x = player_max_x : gosub _Add_Room_State : WriteSendBuffer = req_move_left : goto _skip_game_action
+   if player1y < player_min_y then _Bit2_New_Room_Flip_P1{2} = _Bit6_Flip_P1{6} : new_room_player1x = player1x : new_room_player1y = player_max_y : gosub _Add_Room_State : WriteSendBuffer = req_move_up : goto _skip_game_action
+   if player1x > player_max_x then _Bit2_New_Room_Flip_P1{2} = _Bit6_Flip_P1{6} : new_room_player1y = player1y : new_room_player1x = player_min_x : gosub _Add_Room_State : WriteSendBuffer = req_move_right : goto _skip_game_action
+   if player1y > player_max_y then _Bit2_New_Room_Flip_P1{2} = _Bit6_Flip_P1{6} : new_room_player1x = player1x : new_room_player1y = player_min_y : gosub _Add_Room_State : WriteSendBuffer = req_move_down : goto _skip_game_action
 
 _skip_game_action
 ;  Channel 0 sound effect check.
@@ -987,7 +1052,10 @@ __Skip_Ch_0
    drawscreen
 
    goto __Main_Loop
-; End Main Loop !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; Functions / Subroutines
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 _Set_Game_Over
    WriteToBuffer = _sc1
@@ -998,32 +1066,72 @@ _Set_Game_Over
    goto _skip_game_action
  
 _Reset_Level
-   delay_counter = 60
    WriteSendBuffer = req_level_reset
+   _Bit2_New_Room_Flip_P1{2} = _Bit1_Safe_Point_P1_Flip{1}
+
+_Common_Reset
+   delay_counter = 60
    _Bit5_Request_Pending{5} = 1
-   _Bit6_Flip_P1{6} = _Bit1_Safe_Point_P1_Flip{1}
    pfscore2 = 255
-   player1x = Safe_Point_P1_x
-   player1y = Safe_Point_P1_y
+   P1y_velocity = 0.0 : x = 0
+   new_room_player1x = Safe_Point_P1_x
+   new_room_player1y = Safe_Point_P1_y
    goto _skip_game_action
 
 _Level_Up
-   delay_counter = 60
    WriteToBuffer = _sc1
    WriteToBuffer = _sc2
    WriteToBuffer = _sc3
    WriteSendBuffer = req_level_up
-   _Bit5_Request_Pending{5} = 1
-   _Bit6_Flip_P1{6} = 0
-   _BitOp_Safe_Point = 0
+   _BitOp_Safe_Point_New_Room = 0 ;  == _Bit2_New_Room_Flip_P1{2} = 0 :_Bit1_Safe_Point_P1_Flip{1} = 0 : _Bit0_Safe_Point_reached{0} = 0
    Safe_Point_P1_x = 30
-   Safe_Point_P1_y = 0
+   Safe_Point_P1_y = player_min_y
    pfscore1 = %00101010
-   pfscore2 = 255
-   player1y = player_min_y
-   player1x = 30
    score = 0
+   goto _Common_Reset
+
+; Add the room state of the room we are just leaving to the request,
+; to store it in the backend session
+_Add_Room_State
+   _Bit5_Request_Pending{5} = 1
+   WriteToBuffer = r104 ; r_roommate_type_and_range
+   WriteToBuffer = r105 ; r_roommate_startpos_x
+   WriteToBuffer = r106 ; r_roommate_startpos_y
+   WriteToBuffer = r107 ; r_extra_wall_type_and_range
+   WriteToBuffer = r108 ; r_extra_wall_width
+   WriteToBuffer = r109 ; r_extra_wall_height
+   WriteToBuffer = r110 ; r_extra_wall_startpos_x
+   WriteToBuffer = r111 ; r_extra_wall_startpos_y
+   return
+
+
+; loading room (12 pf bytes + interior ) from backend
+; and write to SC/playfield RAM 
+_Change_Room
+   delay_counter = 2 : player0y = 200
+   _Bit_Game_State = _Bit_Game_State & %11111100  ; reset direction of enemy and wall to right
+   _Bit5_Request_Pending{5} = 0
+   _Bit0_Safe_Point_reached{0} = 0
+   player1y = new_room_player1y : player1x = new_room_player1x : _Bit6_Flip_P1{6} = _Bit2_New_Room_Flip_P1{2}
+   asm
+    LDA	#0
+    STA	bally
+    STA	extra_wall_move_x
+    STA	roommate_move_x
+    TAX
+.copy_loop
+    LDA	ReceiveBuffer   		; 4
+    STA	w_room_definition_start,x				    ; 5   @9
+    INX					        ; 2   @11
+    LDA	ReceiveBufferSize		; 4   @15
+    BNE	.copy_loop			    ; 2/3 @18
+end
+   roommate_type = r_roommate_type_and_range & 3
    goto _skip_game_action
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; Data Tables
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;  Sound data for shot hitting wall.
    data _SD_Shot_Wall
@@ -1136,56 +1244,21 @@ end
 end
 
 
-
-
-
-
-
-
- rem Add the room state of the room we are just leaving to the request to store it at the backend
-_send_room_state
-   _Bit5_Request_Pending{5} = 1
-   WriteToBuffer = r106 ; r_roommate_type_and_range
-   WriteToBuffer = r107 ; r_roommate_startpos_y
-   WriteToBuffer = r108 ; r_roommate_startpos_x
-   WriteToBuffer = r109 ; r_extra_wall_width
-   WriteToBuffer = r110 ; r_extra_wall_type
-   WriteToBuffer = r111 ; r_extra_wall_startpos_x
-   return
-
-
- rem loading room (12 pf bytes + interior ) from backend
- rem and write to SC/playfield RAM 
-change_room
-   delay_counter = 2 : player0y = 200
-   _Bit_Game_State = _Bit_Game_State & %11111100  ; reset direction of enemy and wall to right
-   _Bit5_Request_Pending{5} = 0
-   _Bit0_Safe_Point_reached{0} = 0
-   asm
-    LDA	#0
-    STA	bally
-    STA	extra_wall_move_x
-    STA	roommate_move_x
-    TAX
-.copy_loop
-    LDA	ReceiveBuffer   		; 4
-    STA	w_room_definition_start,x				    ; 5   @9
-    INX					        ; 2   @11
-    LDA	ReceiveBufferSize		; 4   @15
-    BNE	.copy_loop			    ; 2/3 @18
-end
-   roommate_type = r_roommate_type_and_range & 3
-   goto _skip_game_action
-
-
-
- rem define PlusROM backend URL here
- rem don't let your program flow run into this code
+; define PlusROM backend URL here
+; don't let your program flow run into this code
  asm
  SET_PLUSROM_API "a.php", "ca.firmaplus.de"
 end
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; Bank 2
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
    bank 2
+
+   asm
+   include "titlescreen/asm/titlescreen.asm"
+end
 
    asm
 minikernel
