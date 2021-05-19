@@ -15,11 +15,11 @@ bmp_48x2_1_height = 5
 
  ;*** The color of each line in the bitmap, in reverse order...
 bmp_48x2_1_colors 
-	BYTE $9a
-	BYTE $7a
-	BYTE $5a
-	BYTE $3a
-	BYTE $1a
+	BYTE _84
+	BYTE _88
+	BYTE _48
+	BYTE _46
+	BYTE _44
 
  ifnconst bmp_48x2_1_PF1
 bmp_48x2_1_PF1

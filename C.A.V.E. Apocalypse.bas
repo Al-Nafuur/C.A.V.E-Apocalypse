@@ -396,6 +396,8 @@
    dim max_priv_level_bcd2 = var7
    dim max_priv_level_bcd3 = var8
 
+   dim extra_wall_type = var9
+
 
 ; SuperChip RAM used for room definitions before playfield area (w112/r112)
    dim w_room_definition_start      = w097
@@ -437,16 +439,13 @@ _Start
    bne .clear_ram
 end
 
-   WriteSendBuffer = req_load_menu : _Bit5_Request_Pending{5} = 1 : COLUP0 = _1C
-   gamenumber = 1 : score = 1 : scorecolor = _0E
-   player1x = 30 : player1y = 0 ; disable player1 on startscreen 
-   new_room_player1y = player_min_y : new_room_player1x = 30
-   AUDV0 = 0 : AUDV1 = 0
-   missile0x = 200 : missile0y = 200 : missile0height = 1 : bally = 0
-   w_extra_wall_startpos_x = 200   ; disable extra wall on start screen
-   w_roommate_startpos_y = 200 : player0y = 200 : player0x = 0 ; disable player0 on startscreen
+   WriteSendBuffer = req_load_menu : _Bit5_Request_Pending{5} = 1 : COLUP0 = _1C : scorecolor = _0E
+   gamenumber = 1 : score = 1 : missile0height = 1 
+   new_room_player1y = player_min_y : Safe_Point_P1_y = player_min_y
+   new_room_player1x = 30 : player1x = 30 : Safe_Point_P1_x = 30
+   AUDV0 = 0 : AUDV1 = 0 : frame_counter = 0 : player0x = 0 : bally = 0 : player1y = 0 
+   missile0x = 200 : missile0y = 200 : w_extra_wall_startpos_x = 200 : w_roommate_startpos_y = 200 : player0y = 200
 
-   Safe_Point_P1_x = 30 : Safe_Point_P1_y = player_min_y
 
    pfclear
    player1color:
@@ -597,31 +596,31 @@ end
 
 _roommate_Fuel_def
    player0: 
-   %00111000
+   %00111100
    %00100000
    %00100000
    %00100000
    %00100000
    %00000000
-   %00111000
-   %00100000
-   %00110000
+   %00111100
    %00100000
    %00111000
+   %00100000
+   %00111100
    %00000000
-   %00010000
-   %00101000
-   %00101000
-   %00101000
-   %00101000
+   %00011000
+   %00100100
+   %00100100
+   %00100100
+   %00100100
    %00000000
    %00100000
    %00100000
-   %00110000
+   %00111000
    %00100000
-   %10111010
-   %10000010
-   %11111110
+   %10111101
+   %10000001
+   %11111111
 end
    goto _roommate_End_def
 
@@ -640,9 +639,9 @@ end
 end
 _roommate_End_def
 
-; compute movement of enemy, wall and soldiers
+; compute movement of enemies, soldiers or wall (laser)
    if !frame_counter{4} then _Skip_Wall_Movement
-   if r_extra_wall_type_and_range < 4 then _Finish_Interior_Movement
+   if extra_wall_type < 2 then _Finish_Interior_Movement
    if _Bit1_Wall_Dir{1} then extra_wall_move_x = extra_wall_move_x - 1 else extra_wall_move_x = extra_wall_move_x + 1
    if extra_wall_move_x = r_extra_wall_type_and_range then _Bit1_Wall_Dir{1} = 1
    if !extra_wall_move_x then _Bit1_Wall_Dir{1} = 0
@@ -661,8 +660,8 @@ _Finish_Interior_Movement
 ; Check for extra walls
    if r_extra_wall_startpos_x = 200 then _Skip_extra_Wall
    ballx = r_extra_wall_startpos_x + extra_wall_move_x
-   bally = 47
-   ballheight = 23
+   if extra_wall_type = 1 && frame_counter < r_extra_wall_type_and_range then bally = 0 else bally = r_extra_wall_startpos_y
+   ballheight = r_extra_wall_height
    CTRLPF = r_extra_wall_width | 1 ; * Ball 8 pixels wide ($00=1, $10=2, $20=4, $30=8).
 _Skip_extra_Wall
 
@@ -858,8 +857,8 @@ __Skip_Shot_Enemy
    ;  Clears missile0 bit and moves missile0 off the screen.
    _Bit7_M0_Moving{7} = 0 : missile0x = 200 : missile0y = 200
 
-   ;  Turns on sound effect and clear wall from screen, if it is not a moving wall.
-   if r_extra_wall_type_and_range > 3 then __Skip_Shot_Extra_Wall
+   ;  Turns on sound effect and clear wall from screen, if it is not a moving/blinking wall/laser.
+   if extra_wall_type then __Skip_Shot_Extra_Wall
 
    _Ch0_Sound = 1 : _Ch0_Duration = 1 : _Ch0_Counter = 0
    w_extra_wall_startpos_x = 200 : bally = 0 : score = score + 10
@@ -905,7 +904,7 @@ _skip_move
    if player1x < player_min_x then _Bit2_New_Room_Flip_P1{2} = _Bit6_Flip_P1{6} : new_room_player1y = player1y : new_room_player1x = player_max_x : gosub _Add_Room_State : WriteSendBuffer = req_move_left : goto _skip_game_action
    if player1y < player_min_y then _Bit2_New_Room_Flip_P1{2} = _Bit6_Flip_P1{6} : new_room_player1x = player1x : new_room_player1y = player_max_y : gosub _Add_Room_State : WriteSendBuffer = req_move_up : goto _skip_game_action
    if player1x > player_max_x then _Bit2_New_Room_Flip_P1{2} = _Bit6_Flip_P1{6} : new_room_player1y = player1y : new_room_player1x = player_min_x : gosub _Add_Room_State : WriteSendBuffer = req_move_right : goto _skip_game_action
-   if player1y > player_max_y then _Bit2_New_Room_Flip_P1{2} = _Bit6_Flip_P1{6} : new_room_player1x = player1x : new_room_player1y = player_min_y : gosub _Add_Room_State : WriteSendBuffer = req_move_down : goto _skip_game_action
+   if player1y > player_max_y then _Bit2_New_Room_Flip_P1{2} = _Bit6_Flip_P1{6} : new_room_player1x = player1x : new_room_player1y = player_min_y : gosub _Add_Room_State : WriteSendBuffer = req_move_down
 
 _skip_game_action
 ;  Channel 0 sound effect check.
@@ -1127,6 +1126,7 @@ _Change_Room
     BNE	.copy_loop			    ; 2/3 @18
 end
    roommate_type = r_roommate_type_and_range & 3
+   extra_wall_type = r_extra_wall_type_and_range & 3
    goto _skip_game_action
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
