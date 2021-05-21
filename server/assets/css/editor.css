@@ -13,36 +13,21 @@ h1 a {color: #fff; text-decoration: none}
 #LevelMap, td.grid { border: 1px solid black; border-collapse: collapse; margin:auto; }
 .thumbnail:hover { cursor:zoom-in }
 td.grid { background-color: black}
+td.grid td { cursor: pointer}
+
 .brk_wall {
  position: relative;
- width: 8px;
  height: 22.5px;
- top: -45px;
  margin-bottom: -22.5px;
-}
-.lmp_top {
- position: relative;
- width: 8px;
- height: 22.5px;
- top: -67.5px;
- margin-bottom: -22.5px;
- z-index: -2;
 }
 
-.eny_mid {
- position: relative;
- width: 8px;
- height: 22.5px;
- top: -45px;
- margin-bottom: -22.5px;
+.enemy {
+  position: relative;
+  width: 8px;
+  height: 22.5px;
+  margin-bottom: -22.5px;
 }
-.eny_bot {
- position: relative;
- width: 8px;
- height: 22.5px;
- top: -22.5px;
- margin-bottom: -22.5px;
-}
+ 
 
 .color_ntsc_00 {background-color:#000000;}
 .color_ntsc_02 {background-color:#1a1a1a;}
@@ -52,6 +37,14 @@ td.grid { background-color: black}
 .color_ntsc_0a {background-color:#a2a2a2;}
 .color_ntsc_0c {background-color:#c7c7c7;}
 .color_ntsc_0e {background-color:#ededed;}
+.color_ntsc_0 {background-color:#000000;}
+.color_ntsc_2 {background-color:#1a1a1a;}
+.color_ntsc_4 {background-color:#393939;}
+.color_ntsc_6 {background-color:#5b5b5b;}
+.color_ntsc_8 {background-color:#7e7e7e;}
+.color_ntsc_a {background-color:#a2a2a2;}
+.color_ntsc_c {background-color:#c7c7c7;}
+.color_ntsc_e {background-color:#ededed;}
 
 .color_ntsc_10 {background-color:#190200;}
 .color_ntsc_12 {background-color:#3a1f00;}
@@ -197,4 +190,22 @@ td.grid { background-color: black}
 @keyframes moving_wall {
   from {left: 35px;}
   to {left: 98px;}
+}
+
+.move {
+  animation: moving_wall 3s infinite alternate
+}
+.blink {
+  animation: blink_animation 1s steps(5, start) infinite;
+  -webkit-animation: blink_animation 1s steps(5, start) infinite;
+}
+@keyframes blink_animation {
+  to {
+    visibility: hidden;
+  }
+}
+@-webkit-keyframes blink_animation {
+  to {
+    visibility: hidden;
+  }
 }

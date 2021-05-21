@@ -15,6 +15,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     session_id($device_id);
     session_start(["use_cookies" => false, "use_only_cookies" => false, "use_trans_sid" => false]);
 
+    $user_dir = "/admin";
+
     $post_data = file_get_contents("php://input");
     $post_data_len = strlen($post_data);
     $post_array = [];
@@ -45,16 +47,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $game_number = $post_array[3];
         $game_status = ["gn" => $game_number, "l" => $level, "r" => 0, "sr" => 0,  "s" => []];
         if($game_number == 2 || $game_number == 4){
-            $game_status["avl"] = range(1, 3); // available levels
+            $game_status["avl"] = range(1,5); // available levels
             shuffle($game_status["avl"]);
             $game_status["l"] = array_shift($game_status["avl"]);
         }
-        include("./data/Level_".$game_status["l"]."/Room_00.php");
+        include("./data".$user_dir."/Level_".$game_status["l"]."/Room_0.php");
     }elseif($action == 1){
         // end level goto next level
         if($game_status["gn"] == 2 || $game_status["gn"] == 4){
             if(empty($game_status["avl"])){
-                $game_status["avl"] = range(1, 3);
+                $game_status["avl"] = range(1, 5);
                 shuffle($game_status["avl"]);
             }
             $game_status["l"] = array_shift($game_status["avl"]);
@@ -62,14 +64,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $game_status["l"]++;
         }
 
-        if(! is_dir("./data/Level_".$game_status["l"])){
+        if(! is_dir("./data".$user_dir."/Level_".$game_status["l"])){
             // start in level 1 again after last level?
             $game_status["l"] = 1;
         }
         $game_status["r"] = 0;
         $game_status["sr"] = 0;
         $game_status["s"] = [];
-        include("./data/Level_".$game_status["l"]."/Room_00.php");
+        include("./data".$user_dir."/Level_".$game_status["l"]."/Room_0.php");
     }elseif($action == 2){
         // game lost (todo save score for this level in High Score List)
         unset( $_SESSION );
@@ -78,7 +80,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }elseif($action == 7){
         // live lost reset to last safe point
         $game_status["r"] = $game_status["sr"]; 
-        include("./data/Level_".$game_status["l"]."/Room_".sprintf("%'.02d",$game_status["r"]).".php");
+        include("./data".$user_dir."/Level_".$game_status["l"]."/Room_".$game_status["r"].".php");
     }elseif($action == 8){
         // safe point (fuel station) in current room reached
         $game_status["sr"] = $game_status["r"];
@@ -88,17 +90,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         unset( $_SESSION );
         $load_room = false;
         $save_session = false;
-        $resp .= chr(0).chr(0).chr(0x03).chr(0).chr(0).chr(0);
+        $resp .= chr(0).chr(0).chr(0x05).chr(0).chr(0).chr(0);
     }else{
         // Player has moved to another room.
         $level = $game_status["l"];
         $old_room  = $game_status["r"];
         $game_status["s"][$old_room] = $post_array;
         $direction = $action - 3;
-        include("./data/Level_".$level."/Room_".sprintf("%'.02d", $old_room).".php");
+        include("./data".$user_dir."/Level_".$level."/Room_". $old_room.".php");
         if($room["exit"][$direction] != -1){
             $game_status["r"] = $room["exit"][$direction];
-            include("./data/Level_".$level."/Room_".sprintf("%'.02d",$game_status["r"]).".php");
+            include("./data".$user_dir."/Level_".$level."/Room_".$game_status["r"].".php");
         }
     }
 
