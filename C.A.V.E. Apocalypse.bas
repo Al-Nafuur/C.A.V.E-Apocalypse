@@ -686,16 +686,17 @@ _Skip_enemy
    if _Bit5_Request_Pending{5} || _Bit4_Game_Over{4} then goto _skip_game_action ; game over screen or wait for new room
 
    if !_Bit2_Level_finished{2} then _game_action
-   _Ch0_Sound = 3 : _Ch0_Duration = 1 : _Ch0_Counter = 0
-   delay_counter = 25
-   
+  
    ; 100 points for timer point left
-   if pfscore2 then pfscore2 = pfscore2 / 2 : score = score + 100 : goto _skip_game_action
+   if pfscore2 then pfscore2 = pfscore2 / 2 : score = score + 100 : goto _bonus_sound_delay
 
    ; 200 points for each life left
-   score = score + 200
-   pfscore1 = pfscore1 / 4
-   if !pfscore1 then _Bit2_Level_finished{2} = 0 : goto _Level_Up
+   if pfscore1 then pfscore1 = pfscore1 / 4 : score = score + 200 : goto _bonus_sound_delay
+   if joy0fire then _Bit2_Level_finished{2} = 0 : goto _Level_Up else goto _skip_game_action
+_bonus_sound_delay
+   _Ch0_Sound = 3 : _Ch0_Duration = 1 : _Ch0_Counter = 0
+   delay_counter = 25
+
    goto _skip_game_action
 
 
