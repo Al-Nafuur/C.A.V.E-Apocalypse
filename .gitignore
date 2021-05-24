@@ -1,2 +1,3 @@
 server/old
 server/data/*
+server/inc/db_connect.php

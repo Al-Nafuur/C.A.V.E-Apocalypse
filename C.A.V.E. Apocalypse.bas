@@ -8,12 +8,13 @@
    const pfscore = 1
 
    rem gravity is acceleration (https://atariage.com/forums/topic/226881-gravity/?do=findComment&comment=3017307)
+   rem by AA user bogax (https://atariage.com/forums/profile/22687-bogax/)
    rem the smallest fraction is 1/256 rounded up here to 0.004
    rem assuming gravity is applied each drawscreen this should
    rem work out to ~7 pixels in 1 second, 28 pixels in 2 seconds
    rem 63 pixels in 3 seconds
    def gravity_player1=0.004
-   def gravity_missile0=0.024
+   def gravity_missile0=0.008
 
    const player_min_x = 10
    const player_max_x = 134
@@ -362,7 +363,7 @@
    rem 16 bit velocity
    dim Bally_velocity = p.q
    rem 16 bit ball y position
-   dim Bally_position = bally.r
+   dim Bally_position = ball_shoot_y.r
 
    rem 16 bit velocity
    dim M0y_velocity = s.t
@@ -396,7 +397,11 @@
    dim max_priv_level_bcd2 = var7
    dim max_priv_level_bcd3 = var8
 
-   dim extra_wall_type = var9
+   dim has_private_levels = var9
+   dim ball_shoot_x       = var10
+   dim ball_shoot_y       = var11
+
+
 
 
 ; SuperChip RAM used for room definitions before playfield area (w112/r112)
@@ -477,6 +482,7 @@ _titlescreen_menu
    max_priv_level_bcd1 = ReceiveBuffer
    max_priv_level_bcd2 = ReceiveBuffer
    max_priv_level_bcd3 = ReceiveBuffer
+   has_private_levels = max_priv_level_bcd1 | max_priv_level_bcd2 | max_priv_level_bcd3 
 _Skip_Read_Menu_Response
 
    if _Bit5_Request_Pending{5} then _titlescreen_menu ; wait for menu response
@@ -486,6 +492,8 @@ _Skip_Read_Menu_Response
    if joy0right then score = score + 100 : delay_counter = 5
    if joy0up then score = score + 1 : delay_counter = 5
 
+
+   if gamenumber > 2 then _User_Level_Compare 
    ; asm compare of a 3 bcd number, adapted by Karl G with input from bogax.
    asm
    sed                              ; Set the Decimal Mode Flag
@@ -498,13 +506,28 @@ _Skip_Read_Menu_Response
    cld                              ; Clear the Decimal Flag
    bcs ._Skip_Level_Reset           ; Branch if Carry Set
                                     ; (goto label if carry is set)
+   jmp ._Level_Reset
+
+._User_Level_Compare
+   sed                              ; Set the Decimal Mode Flag
+   lda max_priv_level_bcd3           ; Load the Accumulator
+   cmp _sc3                         ; Compare Memory and the Accumulator
+   lda max_priv_level_bcd2           ; Load the Accumulator
+   sbc _sc2                         ; Subtract With Carry
+   lda max_priv_level_bcd1           ; Load the Accumulator
+   sbc _sc1                         ; Subtract With Carry
+   cld                              ; Clear the Decimal Flag
+   bcs ._Skip_Level_Reset           ; Branch if Carry Set
+                                    ; (goto label if carry is set)
+
 end
+_Level_Reset
    score = 1
 
 _Skip_Level_Reset
    if _sc1 = 0 && _sc2 = 0 && _sc3 = 0 then _sc1 = max_pub_level_bcd1 : _sc2 = max_pub_level_bcd2 : _sc3 = max_pub_level_bcd3
 
-   if switchselect then gamenumber = gamenumber + 1 : delay_counter = 20 : if gamenumber > 2 then gamenumber = 1
+   if switchselect then gamenumber = gamenumber + 1 : delay_counter = 20 : if gamenumber > 4 && has_private_levels then gamenumber = 1 else if gamenumber > 2 && !has_private_levels then gamenumber = 1
    if !joy0fire then goto _titlescreen_menu
 
    WriteToBuffer = _sc1 : WriteToBuffer = _sc2 : WriteToBuffer = _sc3 : WriteToBuffer = gamenumber : WriteSendBuffer = req_load : _Bit5_Request_Pending{5} = 1
@@ -641,7 +664,7 @@ _roommate_End_def
 
 ; compute movement of enemies, soldiers or wall (laser)
    if !frame_counter{4} then _Skip_Wall_Movement
-   if extra_wall_type < 2 then _Finish_Interior_Movement
+   if r_extra_wall_type_and_range{1} || r_extra_wall_type_and_range < 2 then _Finish_Interior_Movement
    if _Bit1_Wall_Dir{1} then extra_wall_move_x = extra_wall_move_x - 1 else extra_wall_move_x = extra_wall_move_x + 1
    if extra_wall_move_x = r_extra_wall_type_and_range then _Bit1_Wall_Dir{1} = 1
    if !extra_wall_move_x then _Bit1_Wall_Dir{1} = 0
@@ -659,14 +682,18 @@ _Finish_Interior_Movement
 
 ; Check for extra walls
    if r_extra_wall_startpos_x = 200 then _Skip_extra_Wall
+   if _Bit3_Ball_Shot_Moving{3} && frame_counter{0} then _Skip_extra_Wall
    ballx = r_extra_wall_startpos_x + extra_wall_move_x
-   if extra_wall_type = 1 && frame_counter < r_extra_wall_type_and_range then bally = 0 else bally = r_extra_wall_startpos_y
+   if r_extra_wall_type_and_range{1} && frame_counter < r_extra_wall_type_and_range then bally = 0 else bally = r_extra_wall_startpos_y
    ballheight = r_extra_wall_height
    CTRLPF = r_extra_wall_width | 1 ; * Ball 8 pixels wide ($00=1, $10=2, $20=4, $30=8).
+   goto _Skip_ball_shot
 _Skip_extra_Wall
 
    if !_Bit3_Ball_Shot_Moving{3} then _Skip_ball_shot
-   ballheight = 2
+   ballx = ball_shoot_x
+   bally = ball_shoot_y
+   ballheight = 1
    CTRLPF = %00010001 ; * Ball 8 pixels wide ($00=1, $10=2, $20=4, $30=8).
 _Skip_ball_shot
 
@@ -721,7 +748,7 @@ _Skip_dec_game_counter
     ;  Turns on ball shoot movement.
    _Bit3_Ball_Shot_Moving{3} = 1 : _BitOp_Ball_Shot_Dir = 0 : Bally_velocity = 0.0 : q = 0
 
-   ballx = player0x + 4 : bally = player0y - 5
+   ball_shoot_x = player0x + 4 : ball_shoot_y = player0y - 5
 
    ; sound for enemy shot !
    if _Ch0_Sound <> 3 then _Ch0_Sound = 2 : _Ch0_Duration = 1 : _Ch0_Counter = 0
@@ -742,9 +769,9 @@ __Skip_Enemy_Fire
    if !_Bit3_Ball_Shot_Moving{3} then goto __Skip_Enemy_Missile
 
    ;  Moves missile0 in the appropriate direction.
-   if bally > player1y then bally = bally - 1
-   if _Bit0_Ball_Shot_Dir_Left1{0} then ballx = ballx - 1 : if _Bit1_Ball_Shot_Dir_Left2{1} then ballx = ballx - 1
-   if _Bit2_Ball_Shot_Dir_Right1{2} then ballx = ballx + 1 : if _Bit3_Ball_Shot_Dir_Right2{3} then ballx = ballx + 1
+   if ball_shoot_y > player1y then ball_shoot_y = ball_shoot_y - 1
+   if _Bit0_Ball_Shot_Dir_Left1{0} && frame_counter{0} then ball_shoot_x = ball_shoot_x - 1 : if _Bit1_Ball_Shot_Dir_Left2{1} then ball_shoot_x = ball_shoot_x - 1
+   if _Bit2_Ball_Shot_Dir_Right1{2} && frame_counter{0} then ball_shoot_x = ball_shoot_x + 1 : if _Bit3_Ball_Shot_Dir_Right2{3} then ball_shoot_x = ball_shoot_x + 1
 
    rem apply gravity
    Bally_velocity = Bally_velocity + gravity_missile0
@@ -752,13 +779,13 @@ __Skip_Enemy_Fire
 
 
    ;  Clears missile0 if it hits the edge of the screen.
-   if bally < _M_Edge_Top then goto __Delete_Enemy_Missile
-   if bally > _M_Edge_Bottom then goto __Delete_Enemy_Missile
-   if ballx < _M_Edge_Left then goto __Delete_Enemy_Missile
-   if ballx > _M_Edge_Right then goto __Delete_Enemy_Missile
+   if ball_shoot_y < _M_Edge_Top then __Delete_Enemy_Missile
+   if ball_shoot_y > _M_Edge_Bottom then __Delete_Enemy_Missile
+   if ball_shoot_x < _M_Edge_Left then __Delete_Enemy_Missile
+   if ball_shoot_x > _M_Edge_Right then __Delete_Enemy_Missile
 
    ;  Skips rest of section if no collision.
-   if !collision(playfield,ball) then goto __Skip_Enemy_Missile
+   if !collision(playfield,ball) then __Skip_Enemy_Missile
 
 __Delete_Enemy_Missile
 
@@ -780,8 +807,9 @@ __Skip_Enemy_Missile
    ;  stay on track until it hits something.
    _BitOp_M0_Dir = _BitOp_P1_Dir     ;  & $0F
 
-   if _BitOp_M0_Dir = 0 && _Bit6_Flip_P1{6} then _BitOp_M0_Dir = 4
-   if _BitOp_M0_Dir = 0 && ! _Bit6_Flip_P1{6} then _BitOp_M0_Dir = 8
+   if _BitOp_M0_Dir then _Skip_correct_initial_M0_Dir
+   if _Bit6_Flip_P1{6} then _BitOp_M0_Dir = 4 else _BitOp_M0_Dir = 8
+_Skip_correct_initial_M0_Dir
 
    ;  Turns on missile0 movement.
    _Bit7_M0_Moving{7} = 1
@@ -857,12 +885,14 @@ __Skip_Shot_Enemy
 
    ;  Clears missile0 bit and moves missile0 off the screen.
    _Bit7_M0_Moving{7} = 0 : missile0x = 200 : missile0y = 200
+   ; clear enemy shot:
+   _Bit3_Ball_Shot_Moving{3} = 0 : ball_shoot_x = 200 : ball_shoot_y = 200
 
    ;  Turns on sound effect and clear wall from screen, if it is not a moving/blinking wall/laser.
-   if extra_wall_type then __Skip_Shot_Extra_Wall
+   if r_extra_wall_type_and_range{0} then __Skip_Shot_Extra_Wall
 
    _Ch0_Sound = 1 : _Ch0_Duration = 1 : _Ch0_Counter = 0
-   w_extra_wall_startpos_x = 200 : bally = 0 : score = score + 10
+   bally = 0 : w_extra_wall_startpos_x = 200 : score = score + 10
 
 __Skip_Shot_Extra_Wall
 
@@ -1108,9 +1138,11 @@ _Add_Room_State
 ; loading room (12 pf bytes + interior ) from backend
 ; and write to SC/playfield RAM 
 _Change_Room
-   delay_counter = 2 : player0y = 200
-   _Bit_Game_State = _Bit_Game_State & %11111100  ; reset direction of enemy and wall to right
-   _Bit5_Request_Pending{5} = 0
+   delay_counter = 2
+   player0y = 200 : ball_shoot_x = 200 : ball_shoot_y = 200 : missile0x = 200 : missile0y = 200
+   ; reset direction of enemy and wall to right, delete enemy and player shot, delete request pending
+   ; _Bit0_roommate_Dir{0} = 0 : _Bit1_Wall_Dir{1} = 0 : _Bit3_Ball_Shot_Moving{3} = 0 : _Bit5_Request_Pending{5} = 0 : _Bit7_M0_Moving{7} = 0
+   _Bit_Game_State = _Bit_Game_State & %01010100  
    _Bit0_Safe_Point_reached{0} = 0
    player1y = new_room_player1y : player1x = new_room_player1x : _Bit6_Flip_P1{6} = _Bit2_New_Room_Flip_P1{2}
    asm
@@ -1127,7 +1159,6 @@ _Change_Room
     BNE	.copy_loop			    ; 2/3 @18
 end
    roommate_type = r_roommate_type_and_range & 3
-   extra_wall_type = r_extra_wall_type_and_range & 3
    goto _skip_game_action
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
