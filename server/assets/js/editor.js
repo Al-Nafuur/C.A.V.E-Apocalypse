@@ -257,8 +257,8 @@ function renderSmallRoom( room ){
     ret += "</tr></table>";
     if(wall_pos_x >= 0 &&  wall_pos_x <= 144){
         ret += '<div class="brk_wall color_ntsc_' + room.color_0[1].toString(16) + 
-               (((room.interior[3] & 3 ) == 1 ) ? ' blink' :'') +
-               (((room.interior[3] & 3 ) > 1  ) ? ' move' :'') +
+               (((room.interior[3] & 2 ) == 2 ) ? ' blink' :'') +
+               (((room.interior[3] & 2 ) == 0 && room.interior[3] > 2  ) ? ' move' :'') +
                '"' +
                ' style="width: ' + Math.pow(2, (room.interior[4] >> 4 )) + 'px;' +
                ' top: -' + ( 92.5 - wall_pos_y ) + 'px;' +
