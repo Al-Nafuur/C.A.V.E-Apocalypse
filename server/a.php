@@ -86,7 +86,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $save_session = false;
     }elseif($action == 7){
         // live lost reset to last safe point
-        $game_status["r"] = $game_status["sr"]; 
+        $old_room  = $game_status["r"];
+        $game_status["s"][$old_room] = $post_array;
+        $game_status["r"] = $game_status["sr"];
         include("./data".$game_status["dir"]."/Level_".$game_status["l"]."/Room_".$game_status["r"].".php");
     }elseif($action == 8){
         // safe point (fuel station) in current room reached
@@ -129,6 +131,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 
     if($load_room){
+        $resp .= chr($room["mtr_c"]); // men to rescue
         $resp .= chr($room["first_last"]);
 
         $cl_len = count($room["color_".$tv_mode]);
