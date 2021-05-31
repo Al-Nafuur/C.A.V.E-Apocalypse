@@ -28,7 +28,7 @@
    const _M_Edge_Left = 14
    const _M_Edge_Right = 148
 
-   const response_size_minus_1 = 27 ; = (w127 - w_room_definition_start - 1)
+   const response_size_minus_1 = 28 ; = (w127 - w_room_definition_start - 1)
    const response_menu_size = 6
 
    def bonus_level_timer=100
@@ -408,8 +408,10 @@
    dim ball_shoot_x       = var10
    dim ball_shoot_y       = var11
 
-   dim men_to_rescue      = var12
+   dim men_to_rescue      = var12 ; men_to_rescue_index = TextIndex 
    dim TextIndex          = var12
+
+   dim bonus_bcd_counter  = var13
 
 
 ; Move text of Text Minikernel to SC RAM, so message could be loaded from backend
@@ -420,8 +422,10 @@
 
 
 ; SuperChip RAM used for room definitions before playfield area (w112/r112)
-   dim w_room_definition_start      = w096
+   dim w_room_definition_start      = w095
 
+   dim r_level_bonus_bcd_points     = r095
+   dim w_level_bonus_bcd_points     = w095
    dim r_men_to_rescue_in_this_level= r096
    dim w_men_to_rescue_in_this_level= w096
    dim r_BitOp_room_type            = r097
@@ -707,7 +711,7 @@ _Skip_Wall_Movement
 
 _Finish_Interior_Movement
 
-   frame_counter = frame_counter + 1
+   frame_counter = frame_counter - 1
 
 ; Check for extra wall and enemy shot (ball)
    if r_extra_wall_startpos_x = 200 then _Skip_extra_Wall
@@ -737,7 +741,7 @@ _Skip_enemy
 ; Check buffer and request status
    if delay_counter then delay_counter = delay_counter - 1 : temp4 = SWCHA : goto _skip_game_action
 
-   if ReceiveBufferSize > response_size_minus_1 then goto _Change_Room
+   if _Bit5_Request_Pending{5} && ReceiveBufferSize > response_size_minus_1 then goto _Change_Room
 
    if _Bit5_Request_Pending{5} || _Bit4_Game_Over{4} then goto _skip_game_action ; game over screen or wait for new room
 
@@ -748,7 +752,9 @@ _Skip_enemy
 
    ; points for each life left
    if pfscore1 then pfscore1 = pfscore1 / 4 : score = score + bonus_level_lives : goto _bonus_sound_delay
-   if joy0fire then _Bit2_Level_finished{2} = 0 : _Bit7_FireB_Restrainer{7} = 1 : goto _Level_Up else goto _skip_game_action
+   if ! _Bit3_Safe_Point_reached{3} then WriteToBuffer = _sc1 : WriteToBuffer = _sc2 : WriteToBuffer = _sc3 : WriteSendBuffer = req_level_up : _Bit3_Safe_Point_reached{3} = 1     ; don't set _Bit5_Request_Pending here
+
+   if joy0fire then goto _Level_Up else goto _skip_game_action
 _bonus_sound_delay
    _Ch0_Sound = 3 : _Ch0_Duration = 1 : _Ch0_Counter = 0
    delay_counter = 25
@@ -759,6 +765,7 @@ _bonus_sound_delay
 _game_action
 
    if frame_counter then _Skip_dec_game_counter
+   if bonus_bcd_counter then dec bonus_bcd_counter = bonus_bcd_counter - 1
 
    if !pfscore2 then _Decrease_live_counter
    pfscore2 = pfscore2 / 2
@@ -932,7 +939,7 @@ __Skip_Shot_Extra_Wall
 
    ;  Friend touched.
    if _Ch0_Sound <> 3 then _Ch0_Sound = 3 : _Ch0_Duration = 1 : _Ch0_Counter = 0
-   if roommate_type = 3 then men_to_rescue = men_to_rescue - 12 : player0y = 200 : w_roommate_startpos_y = 200 : score = score + bonus_man_rescue :    if !men_to_rescue then _Bit2_Level_finished{2} = 1 : score = score + frame_counter : goto _skip_game_action
+   if roommate_type = 3 then men_to_rescue = men_to_rescue - 12 : player0y = 200 : w_roommate_startpos_y = 200 : score = score + bonus_man_rescue : if !men_to_rescue then goto _Level_Completed
    if roommate_type = 2 then P1y_velocity = 0.0 : x = 0 : pfscore2 = pfscore2 * 2 | 1 : player1y = player1y - 1 : if !_Bit3_Safe_Point_reached{3} then WriteSendBuffer = req_safe_point : _Bit3_Safe_Point_reached{3} = 1 : Safe_Point_P1_x = player1x : Safe_Point_P1_y = player1y : _Bit1_Safe_Point_P1_Flip{1} = _Bit6_Flip_P1{6}
 __Skip_P1_Touched_P0
 
@@ -1137,16 +1144,32 @@ _Common_Reset
    goto _skip_game_action
 
 _Level_Up
-   WriteToBuffer = _sc1
-   WriteToBuffer = _sc2
-   WriteToBuffer = _sc3
-   WriteSendBuffer = req_level_up
-   _BitOp_Flip_positions = 0 ;  == _Bit0_New_Room_P1_Flip{0} = 0 :_Bit1_Safe_Point_P1_Flip{1} = 0
+   _Bit2_Level_finished{2} = 0
+   _Bit7_FireB_Restrainer{7} = 1 : _Bit5_Request_Pending{5} = 1
+   score = 0 : _BitOp_Flip_positions = 0 ;  == _Bit0_New_Room_P1_Flip{0} = 0 :_Bit1_Safe_Point_P1_Flip{1} = 0
    Safe_Point_P1_x = 30
    Safe_Point_P1_y = player_min_y
    pfscore1 = %00101010
-   score = 0
    goto _Common_Reset
+
+_Level_Completed
+   _Bit2_Level_finished{2} = 1
+   temp4 = frame_counter / 2
+   temp5 = temp4 & $0F : if temp5 > 9 then temp4 = temp4 + 6
+   temp5 = temp4 & $F0 : if temp5 > $90 then temp4 = temp4  + $60
+   score = score + temp4
+   asm
+   sed
+   clc
+   lda  _sc2
+   adc  bonus_bcd_counter
+   sta  _sc2
+   lda  _sc1
+   adc  #0
+   sta  _sc1
+   cld
+end
+   goto _skip_game_action
 
 ; Add the room state of the room we are just leaving to the request,
 ; to store it in the backend session
@@ -1188,7 +1211,7 @@ _Change_Room
     BNE	.copy_loop			    ; 2/3 @18
 end
    roommate_type = r_roommate_type_and_range & 3
-   if !men_to_rescue then men_to_rescue = r_men_to_rescue_in_this_level
+   if !men_to_rescue then men_to_rescue = r_men_to_rescue_in_this_level : bonus_bcd_counter = r_level_bonus_bcd_points
    goto _skip_game_action
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
