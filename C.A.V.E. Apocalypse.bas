@@ -367,6 +367,9 @@
    dim Safe_Point_P1_x  = m
    dim Safe_Point_P1_y  = n
 
+   dim _Ch1_Duration = o
+
+
    rem 16 bit velocity
    dim Bally_velocity = p.q
    rem 16 bit ball y position
@@ -413,6 +416,7 @@
 
    dim bonus_bcd_counter  = var13
 
+; var14 and var15 for background music test
 
 ; Move text of Text Minikernel to SC RAM, so message could be loaded from backend
 ; or message can be modified by code (e.g. counter how many men left to rescue)  
@@ -467,7 +471,8 @@ _Start
 end
 
    WriteSendBuffer = req_load_menu : _Bit5_Request_Pending{5} = 1 : COLUP0 = _1C : scorecolor = _0E
-   gamenumber = 1 : score = 1 : missile0height = 1 
+   score = 1
+   gamenumber = 1 : missile0height = 1 
    new_room_player1y = player_min_y : Safe_Point_P1_y = player_min_y
    new_room_player1x = 30 : player1x = 30 : Safe_Point_P1_x = 30
    AUDV0 = 0 : AUDV1 = 0 : frame_counter = 0 : player0x = 0 : bally = 0 : player1y = 0 
@@ -489,105 +494,20 @@ end
    _08
 end
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; Title Menu
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-_titlescreen_menu
-   COLUBK = _00
-
-   gosub titledrawscreen bank2
-
-   if delay_counter then delay_counter = delay_counter - 1 : goto _titlescreen_menu
-
-   if ReceiveBufferSize < response_menu_size then _Skip_Read_Menu_Response
-   _Bit5_Request_Pending{5} = 0
-   max_pub_level_bcd1 = ReceiveBuffer
-   max_pub_level_bcd2 = ReceiveBuffer
-   max_pub_level_bcd3 = ReceiveBuffer
-   max_priv_level_bcd1 = ReceiveBuffer
-   max_priv_level_bcd2 = ReceiveBuffer
-   max_priv_level_bcd3 = ReceiveBuffer
-   has_private_levels = max_priv_level_bcd1 | max_priv_level_bcd2 | max_priv_level_bcd3 
-_Skip_Read_Menu_Response
-
-   if _Bit5_Request_Pending{5} then _titlescreen_menu ; wait for menu response
-
-   if joy0left then score = score - 100 : delay_counter = 5
-   if joy0down then score = score - 1 : delay_counter = 5
-   if joy0right then score = score + 100 : delay_counter = 5
-   if joy0up then score = score + 1 : delay_counter = 5
-
-
-   if gamenumber > 2 then _User_Level_Compare 
-   ; asm compare of a 3 bcd number, adapted by Karl G with input from bogax.
-   asm
-   sed                              ; Set the Decimal Mode Flag
-   lda max_pub_level_bcd3           ; Load the Accumulator
-   cmp _sc3                         ; Compare Memory and the Accumulator
-   lda max_pub_level_bcd2           ; Load the Accumulator
-   sbc _sc2                         ; Subtract With Carry
-   lda max_pub_level_bcd1           ; Load the Accumulator
-   sbc _sc1                         ; Subtract With Carry
-   cld                              ; Clear the Decimal Flag
-   bcs ._Skip_Level_Reset           ; Branch if Carry Set
-                                    ; (goto label if carry is set)
-   jmp ._Level_Reset
-
-._User_Level_Compare
-   sed                              ; Set the Decimal Mode Flag
-   lda max_priv_level_bcd3           ; Load the Accumulator
-   cmp _sc3                         ; Compare Memory and the Accumulator
-   lda max_priv_level_bcd2           ; Load the Accumulator
-   sbc _sc2                         ; Subtract With Carry
-   lda max_priv_level_bcd1           ; Load the Accumulator
-   sbc _sc1                         ; Subtract With Carry
-   cld                              ; Clear the Decimal Flag
-   bcs ._Skip_Level_Reset           ; Branch if Carry Set
-                                    ; (goto label if carry is set)
-
-end
-_Level_Reset
-   score = 1
-
-_Skip_Level_Reset
-   if _sc1 = 0 && _sc2 = 0 && _sc3 = 0 then _sc1 = max_pub_level_bcd1 : _sc2 = max_pub_level_bcd2 : _sc3 = max_pub_level_bcd3
-
-   if switchselect then gamenumber = gamenumber + 1 : delay_counter = 20 : if gamenumber > 4 && has_private_levels then gamenumber = 1 else if gamenumber > 2 && !has_private_levels then gamenumber = 1
-   if !joy0fire then _Bit7_FireB_Restrainer{7} = 0 : goto _titlescreen_menu
-   if _Bit7_FireB_Restrainer{7} then goto _titlescreen_menu
-
-   ; End of title screen. Send selected level and gamenumber to PlusROM backend,
-   ; response should be the first room of the selected game variant.
-   WriteToBuffer = _sc1 : WriteToBuffer = _sc2 : WriteToBuffer = _sc3 : WriteToBuffer = gamenumber : WriteSendBuffer = req_load : _Bit5_Request_Pending{5} = 1
-
-   _Bit7_FireB_Restrainer{7} = 1
-
-   player1y = player_min_y : _Bit4_Game_Over{4} = 0
-   score = 0  : men_to_rescue = 0
-   pfscore1 = %00101010 : pfscore2 = 255 : pfscorecolor = _1C
-
-
-; My hack to move pfcolortable to SC RAM read port...
-   asm
-   lda	#>(r_room_color_middle-132+pfres*pfwidth)
-   sta	pfcolortable+1
-   lda	#<(r_room_color_middle-132+pfres*pfwidth)
-   sta	pfcolortable
-end
-
+   goto _titlescreen_menu bank2
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; Main Loop
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 __Main_Loop
+   if switchreset then goto _Reset_To_Start
+
    COLUPF = r_room_color_top
    NUSIZ1 = $05
    NUSIZ0 = $10
    COLUBK = _00
    TextColor = $0E
-
-   if switchreset then goto _Start ; toDo wait for end of request with timeout if _Bit5_Request_Pending{5} = 0 
 
    if frame_counter{2} then player1: 
    %00011011
@@ -743,7 +663,7 @@ _Skip_enemy
 
    if _Bit5_Request_Pending{5} && ReceiveBufferSize > response_size_minus_1 then goto _Change_Room
 
-   if _Bit5_Request_Pending{5} || _Bit4_Game_Over{4} then goto _skip_game_action ; game over screen or wait for new room
+   if _Bit5_Request_Pending{5} || _Bit4_Game_Over{4} then temp4 = SWCHA : goto _skip_game_action ; game over screen or wait for new room
 
    if !_Bit2_Level_finished{2} then _game_action
   
@@ -964,8 +884,9 @@ skip_gravity
 _skip_move
 
    ; dont leave top rooms to the top.
-   if player1y < player_min_y && r_Bit0_room_type_top{0} then player1y = player_min_y : goto _skip_game_action
-; check for leaving the room
+   if player1y < player_min_y && r_Bit0_room_type_top{0} then player1y = player_min_y 
+   
+   ; check for leaving the room
    if player1x < player_min_x then _Bit0_New_Room_P1_Flip{0} = _Bit6_Flip_P1{6} : new_room_player1y = player1y : new_room_player1x = player_max_x : gosub _Add_Room_State : WriteSendBuffer = req_move_left : goto _skip_game_action
    if player1y < player_min_y then _Bit0_New_Room_P1_Flip{0} = _Bit6_Flip_P1{6} : new_room_player1x = player1x : new_room_player1y = player_max_y : gosub _Add_Room_State : WriteSendBuffer = req_move_up : goto _skip_game_action
    if player1x > player_max_x then _Bit0_New_Room_P1_Flip{0} = _Bit6_Flip_P1{6} : new_room_player1y = player1y : new_room_player1x = player_min_x : gosub _Add_Room_State : WriteSendBuffer = req_move_right : goto _skip_game_action
@@ -1110,6 +1031,65 @@ __Skip_Ch_0
 
 
 
+   ;```````````````````````````````````````````````````````````````
+   ;  Decreases the channel 1 duration counter.
+   ;
+   _Ch1_Duration = _Ch1_Duration - 1
+
+   ;```````````````````````````````````````````````````````````````
+   ;  Skips channel 1 if duration counter is greater than zero.
+   ;
+   if _Ch1_Duration then goto __Skip_Ch_1
+
+
+
+   ;***************************************************************
+   ;
+   ;  Channel 1 background music.
+   ;
+   ;```````````````````````````````````````````````````````````````
+   ;  Retrieves first part of channel 1 data.
+   ;
+   temp4 = sread(_SD_Music01)
+
+   ;```````````````````````````````````````````````````````````````
+   ;  Checks for end of data.
+   ;
+   if temp4 = 255 then goto __BG_Music_Setup_01
+
+   ;```````````````````````````````````````````````````````````````
+   ;  Retrieves more channel 1 data.
+   ;
+   temp5 = sread(_SD_Music01)
+   temp6 = sread(_SD_Music01)
+
+   ;```````````````````````````````````````````````````````````````
+   ;  Plays channel 1.
+   ;
+   AUDV1 = temp4
+   AUDC1 = temp5
+   AUDF1 = temp6
+
+   ;```````````````````````````````````````````````````````````````
+   ;  Sets duration.
+   ;
+   _Ch1_Duration = sread(_SD_Music01)
+
+
+
+   ;***************************************************************
+   ;
+   ;  End of channel 1 area.
+   ;
+__Skip_Ch_1
+
+
+
+
+
+
+
+
    if _Bit6_Flip_P1{6} then REFP1 = 8
    if _Bit0_roommate_Dir{0} then REFP0 = 8
 
@@ -1213,6 +1193,15 @@ end
    roommate_type = r_roommate_type_and_range & 3
    if !men_to_rescue then men_to_rescue = r_men_to_rescue_in_this_level : bonus_bcd_counter = r_level_bonus_bcd_points
    goto _skip_game_action
+
+
+_Reset_To_Start
+   ; todo check also for pending requests!  if _Bit5_Request_Pending{5} = 1 then
+   if ReceiveBufferSize = 0 then goto _Start
+   asm
+    LDA	ReceiveBuffer   		; 4
+end
+   goto _Reset_To_Start; toDo wait for end of response with timeout will need drawscreen
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; Data Tables
@@ -1328,11 +1317,124 @@ end
    255
 end
 
+
+__BG_Music_Setup_01
+
+   sdata _SD_Music01 = var14
+   8, 15, 30, 4
+   0, 0, 0, 16
+  255
+end
+
+   _Ch1_Duration = 1
+
+   goto __Skip_Ch_1
+/*
+   8, 6, 29, 4
+
+   15, 14, 30, 1
+   14, 14, 30, 1
+   13, 14, 30, 1
+   11, 14, 30, 1
+   9, 14, 30, 1
+   7, 14, 30, 1
+   4, 14, 30, 1
+   1, 14, 30, 1
+   0, 0, 0, 8
+*/
+
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; Bank 2
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
    bank 2
+
+; Title screen and menu
+_titlescreen_menu
+   COLUBK = _00
+
+   gosub titledrawscreen
+
+   if delay_counter then delay_counter = delay_counter - 1 : goto _titlescreen_menu
+
+   if ReceiveBufferSize < response_menu_size then _Skip_Read_Menu_Response
+   _Bit5_Request_Pending{5} = 0
+   max_pub_level_bcd1 = ReceiveBuffer
+   max_pub_level_bcd2 = ReceiveBuffer
+   max_pub_level_bcd3 = ReceiveBuffer
+   max_priv_level_bcd1 = ReceiveBuffer
+   max_priv_level_bcd2 = ReceiveBuffer
+   max_priv_level_bcd3 = ReceiveBuffer
+   has_private_levels = max_priv_level_bcd1 | max_priv_level_bcd2 | max_priv_level_bcd3 
+_Skip_Read_Menu_Response
+
+   if _Bit5_Request_Pending{5} then _titlescreen_menu ; wait for menu response
+
+   if joy0left then score = score - 100 : delay_counter = 5
+   if joy0down then score = score - 1 : delay_counter = 5
+   if joy0right then score = score + 100 : delay_counter = 5
+   if joy0up then score = score + 1 : delay_counter = 5
+
+
+   if gamenumber > 2 then _User_Level_Compare 
+   ; asm compare of a 3 bcd number, adapted by Karl G with input from bogax.
+   asm
+   sed                              ; Set the Decimal Mode Flag
+   lda max_pub_level_bcd3           ; Load the Accumulator
+   cmp _sc3                         ; Compare Memory and the Accumulator
+   lda max_pub_level_bcd2           ; Load the Accumulator
+   sbc _sc2                         ; Subtract With Carry
+   lda max_pub_level_bcd1           ; Load the Accumulator
+   sbc _sc1                         ; Subtract With Carry
+   cld                              ; Clear the Decimal Flag
+   bcs ._Skip_Level_Reset           ; Branch if Carry Set
+                                    ; (goto label if carry is set)
+   jmp ._Level_Reset
+
+._User_Level_Compare
+   sed                              ; Set the Decimal Mode Flag
+   lda max_priv_level_bcd3           ; Load the Accumulator
+   cmp _sc3                         ; Compare Memory and the Accumulator
+   lda max_priv_level_bcd2           ; Load the Accumulator
+   sbc _sc2                         ; Subtract With Carry
+   lda max_priv_level_bcd1           ; Load the Accumulator
+   sbc _sc1                         ; Subtract With Carry
+   cld                              ; Clear the Decimal Flag
+   bcs ._Skip_Level_Reset           ; Branch if Carry Set
+                                    ; (goto label if carry is set)
+
+end
+_Level_Reset
+   score = 1
+
+_Skip_Level_Reset
+   if gamenumber < 3 && _sc1 = 0 && _sc2 = 0 && _sc3 = 0 then _sc1 = max_pub_level_bcd1 : _sc2 = max_pub_level_bcd2 : _sc3 = max_pub_level_bcd3
+   if gamenumber > 2 && _sc1 = 0 && _sc2 = 0 && _sc3 = 0 then _sc1 = max_priv_level_bcd1 : _sc2 = max_priv_level_bcd2 : _sc3 = max_priv_level_bcd3
+
+   if switchselect then gamenumber = gamenumber + 1 : delay_counter = 20 : if gamenumber > 4 && has_private_levels then gamenumber = 1 else if gamenumber > 2 && !has_private_levels then gamenumber = 1
+   if !joy0fire then _Bit7_FireB_Restrainer{7} = 0 : goto _titlescreen_menu
+   if _Bit7_FireB_Restrainer{7} then goto _titlescreen_menu
+
+   ; End of title screen. Send selected level and gamenumber to PlusROM backend,
+   ; response should be the first room of the selected game variant.
+   WriteToBuffer = _sc1 : WriteToBuffer = _sc2 : WriteToBuffer = _sc3 : WriteToBuffer = gamenumber : WriteSendBuffer = req_load : _Bit5_Request_Pending{5} = 1
+
+   _Bit7_FireB_Restrainer{7} = 1
+
+   player1y = player_min_y : _Bit4_Game_Over{4} = 0
+   score = 0  : men_to_rescue = 0
+   pfscore1 = %00101010 : pfscore2 = 255 : pfscorecolor = _1C
+
+
+; My hack to move pfcolortable to SC RAM read port...
+   asm
+   lda	#>(r_room_color_middle-132+pfres*pfwidth)
+   sta	pfcolortable+1
+   lda	#<(r_room_color_middle-132+pfres*pfwidth)
+   sta	pfcolortable
+end
+   goto __BG_Music_Setup_01 bank1
 
    asm
    include "titlescreen/asm/titlescreen.asm"
