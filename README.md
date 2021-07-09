@@ -12,13 +12,8 @@ When starting a game or changing a room the room information is requested from t
 The website for the level/room editor can be found [here](https://cave-apocalypse.firmaplus.de/editor.php), but the rooms can only be viewed so far, editing on the website is not working yet. The level files (in /server/data/) have to be edit on the server manually. In the future everyone can register his PlusCart or his emulator account at the backend to build and edit his own levels and submit them to the public repro.
 
 ## Known issues and todos:
-* Titlescreen with level selection (my designs generally look ugly, so I hope someone will make a nice design for a titlescreen)
-* Helicopter in middle position (facing to you when turning around)
-* The enemies don't shot
-* Touching anything execpt the soldiers and the filling station will be "deadly" (or at least decrement your score) in the final version
-* leaving the first room to the top "crashes" the game (the ROM sends a request, but the server doesn't have a room stored at this position)
-* occasional crashes when exiting/entering a new room (only on PlusCart and mostly when exiting shortly after entering the room)
-* when the fuel runs out (Game Over) the game makes a short sound and then stops (restart with reset and then pressing the joystick button)
-* The online level Editor is currently just a viewer and don't shows the enemies
+* Return to titlescreen with joystick button when game is over. 
+* Titlescreen has no music
+* Game-Number and level on titlescreen reset after game over.
 
 ## Screenshots
