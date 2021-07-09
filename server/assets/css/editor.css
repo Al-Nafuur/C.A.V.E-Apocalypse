@@ -196,14 +196,23 @@ td.grid td { cursor: pointer}
   animation: moving_wall 3s infinite alternate
 }
 .blink {
-  animation: blink_animation 1s steps(5, start) infinite;
-  -webkit-animation: blink_animation 1s steps(5, start) infinite;
+  animation: blink_animation 1s steps(2, start) infinite;
+  -webkit-animation: blink_animation 1s steps(2, start) infinite;
 }
+
+.blink2 {
+  animation: blink_animation 1s steps(2, start) infinite;
+  -webkit-animation: blink_animation 1s steps(2, start) infinite;
+  animation-delay: 0.5s;
+  -webkit-animation-delay: 0.5s;
+}
+
 @keyframes blink_animation {
   to {
     visibility: hidden;
   }
 }
+
 @-webkit-keyframes blink_animation {
   to {
     visibility: hidden;

@@ -46,7 +46,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $load_room = true;
     $save_session = true;
 
-    if( $action == 0 ){ // start game
+    if( $action == 0 ){ // start a game
         $game_status["l"] = dechex($post_array[0]) * 10000 + dechex($post_array[1]) * 100 + dechex($post_array[2]);
         $game_status["gn"] = $post_array[3];
         $game_status["r"] = 0;
@@ -58,9 +58,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             shuffle($game_status["avl"]);
             $game_status["l"] = array_shift($game_status["avl"]);
         }
-        include("./data".$game_status["dir"]."/Level_".$game_status["l"]."/Room_0.php");
+        $directory = "./data".$game_status["dir"]."/Level_".$game_status["l"];
+        // Level Bonus timer
+        $rooms_counter = count( scandir($directory)) -2;
+        $game_status["lbp"] = $rooms_counter < 5 ? 0x30 : ($rooms_counter > 16 ? 0x99 : hexdec($rooms_counter * 6 ));
+        include($directory."/Room_0.php");
     }elseif($action == 1){
-        // end level goto next level
+        // end level goto next level (todo save score for this level in High Score List)
+        if($game_status["gn"] < 3) // send public Levels to the HSC
+            sendScoreToHSC($PlusStoreId, $post_array, $game_status["l"]);
         if($game_status["gn"] == 2 || $game_status["gn"] == 4){
             if(empty($game_status["avl"])){
                 $game_status["avl"] = range(1, ($game_status["gn"] > 2 && $game_status["ud"]) ?$game_status["ul"] :$game_status["pl"]);
@@ -78,9 +84,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $game_status["r"] = 0;
         $game_status["sr"] = 0;
         $game_status["s"] = [];
-        include("./data".$game_status["dir"]."/Level_".$game_status["l"]."/Room_0.php");
+        $directory = "./data".$game_status["dir"]."/Level_".$game_status["l"];
+
+        // Level Bonus timer
+        $rooms_counter = count( scandir($directory)) -2;
+        $game_status["lbp"] = $rooms_counter < 5 ? 0x30 : ($rooms_counter > 16 ? 0x99 : hexdec($rooms_counter * 6 ));
+
+        // Count number of files and store them to variable..
+        $num_files = count($files)-2;
+        include($directory."/Room_0.php");
     }elseif($action == 2){
-        // game lost (todo save score for this level in High Score List)
+        // game lost
         unset( $_SESSION );
         $load_room = false;
         $save_session = false;
@@ -131,9 +145,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 
     if($load_room){
-        $resp .= chr($room["mtr_c"]); // men to rescue
-        $resp .= chr($room["first_last"]);
+        // Level data
+        $resp .= chr($game_status["lbp"]); // max level bonus BCD value (todo add to editor API and room["lpb"]!)
+        $resp .= chr($room["mtr_c"]);      // men to rescue
 
+        // room data
+        $resp .= chr($room["first_last"]);
         $cl_len = count($room["color_".$tv_mode]);
         for ( $pos=0; $pos < $cl_len; $pos++ ) {
             $resp .= chr($room["color_".$tv_mode][$pos]);
@@ -152,6 +169,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $ew_len = count($room["interior"]);
             for ( $pos=0; $pos < $ew_len; $pos ++ ) {
                 $resp .= chr($room["interior"][$pos]);
+            }
+            if($ew_len == 8){
+                $resp .= chr(200).chr(200); // disable second wall !
             }
         }
         $pf_len = count($room["pf"]);

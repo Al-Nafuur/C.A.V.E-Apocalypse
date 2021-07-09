@@ -18,7 +18,7 @@ $(document).ready(function() {
     isMouseDown = false;
   });
 
-  loadLevels();
+  loadLevels(false);
   $( "#room_form_mate_range" ).on( "input", function() {
      $( "#mate_range_value" ).html( this.value);
   });
@@ -90,10 +90,8 @@ Tool:
  <option value="0">Add Playfield Block</option>
  <option value="1">Delete Playfield Block</option>
  <option value="2">Toggle Playfield Block</option>
- <!-- option value="3">Edit Enemies/Friends</option -->
- <!-- option value="4">Edit Walls/Laser</option -->
- <!-- option value="5">Edit Room Colors</option -->
- <option value="6">Edit Room</option>
+ <option value="3">Edit Room</option>
+<!-- <option value="7">Delete Room</option> -->
 </select>
 <br>
 <button class="w3-button w3-black" onclick="addColumn(false)">Add Column Left</button>
@@ -105,6 +103,17 @@ Tool:
 <div class="map-container w3-padding-16">
 <table id="LevelMap" class="w3-centered display" border="0" cellpadding="0" cellspacing="0">
     
+</table>
+</div>
+<div>
+<table style="margin: auto">
+ <tr>
+  <td><div class="enemy" style="margin-bottom:0; background-color: yellow"></div></td><td>Tank </td>
+  <td><div class="enemy" style="margin-bottom:0; background-color: magenta"></div></td><td>Soldiers </td>
+  <td><div class="enemy" style="margin-bottom:0; background-color: red"></div></td><td>Air missile </td>
+  <td><div class="enemy" style="margin-bottom:0; background-color: blue"></div></td><td>Fuel station </td>
+  <td><div class="enemy" style="margin-bottom:0; background-color: brown"></div></td><td>Wall or Laser </td>
+ </tr>
 </table>
 </div>
 </div>
@@ -147,13 +156,14 @@ Tool:
     <label class="wide-label">Y-Start Position (disabled = 200)</label>
     <input class="w3-input w3-border" type="text" id="room_form_mate_y" style="width: 25%; display: inline-block">
     <select class="w3-select w3-border" style="width: 72%" onChange="$('#room_form_mate_y').val(this.value)">
-     <option value="200">Disable</option>
+     <option selected disabled value="200"><-- Predefined values</option>
+     <option value="200">Disabled</option>
      <option value="48">Soldier/Tank on bottom row</option>
      <option value="24">Soldier/Tank on middle row</option>
      <option value="71">Fuel on bottom row</option>
      <option value="48">Fuel on middle row</option>
-     <option value="70">Air Missile in bottom row</option>
-     <option value="47">Air Missile in middle row</option>
+     <option value="66">Air Missile in bottom row</option>
+     <option value="44">Air Missile in middle row</option>
     </select>
   </div>
 </div> 
@@ -198,6 +208,23 @@ Tool:
     <label class="wide-label">Y-Start Position</label>
     <input class="w3-input w3-border" type="text" id="room_form_wall_y" style="width: 25%; display: inline-block">
     <select class="w3-select w3-border" style="width: 72%" onChange="$('#room_form_wall_y').val(this.value)">
+     <option selected disabled value="47"><-- Predefined values</option>
+     <option value="47">Wall/Laser in middle row</option>
+     <option value="71">Wall/Laser in bottom row</option>
+     <option value="23">Wall/Laser in top row</option>
+    </select>
+  </div>
+</div> 
+<div class="w3-row-padding">
+  <div class="w3-half">
+    <label>X-Start Position Second Wall</label>
+    <input class="w3-input w3-border" type="text" id="room_form_wall_2_x">
+  </div>
+  <div class="w3-half">
+    <label class="wide-label">Y-Start Position Second Wall</label>
+    <input class="w3-input w3-border" type="text" id="room_form_wall_2_y" style="width: 25%; display: inline-block">
+    <select class="w3-select w3-border" style="width: 72%" onChange="$('#room_form_wall_2_y').val(this.value)">
+     <option selected disabled value="47"><-- Predefined values</option>
      <option value="47">Wall/Laser in middle row</option>
      <option value="71">Wall/Laser in bottom row</option>
      <option value="23">Wall/Laser in top row</option>
@@ -209,9 +236,9 @@ Tool:
 <div class="w3-row-padding">
   <div class="w3-half">
    <label>NTSC Colors</label>
-<input class="color-picker" id="room_form_color_ntsc_top" value="#000" />
-<input class="color-picker" id="room_form_color_ntsc_middle" value="#000" />
-<input class="color-picker" id="room_form_color_ntsc_bottom" value="#000" />
+    <input class="color-picker" id="room_form_color_ntsc_top" value="#000" />
+    <input class="color-picker" id="room_form_color_ntsc_middle" value="#000" />
+    <input class="color-picker" id="room_form_color_ntsc_bottom" value="#000" />
   </div>
   <div class="w3-half">
    <label>PAL Colors</label>
@@ -222,9 +249,16 @@ Tool:
 </div> 
 
 <h2>Misc</h2>
-<input class="w3-check" type="checkbox" id="room_form_first_last">
-<label>Room cannot be left uppwards (Start room)</label>
-
+<div class="w3-row-padding">
+  <div class="w3-half">
+    <input class="w3-check" type="checkbox" id="room_form_first_last">
+    <label>Room cannot be left uppwards (Start room)</label>
+  </div>
+  <div class="w3-half">
+    <input class="w3-check" type="checkbox" id="room_form_change_all_rooms_color">
+    <label>Change all room colors!</label>
+    </div>
+</div> 
 </form>
     </div>
   </div>

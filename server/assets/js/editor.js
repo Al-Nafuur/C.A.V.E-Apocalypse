@@ -1,7 +1,12 @@
 var tCell = '<td class="grid"><span onclick="addRoom(this)" class="w3-button w3-blue">+Room</span></td>';
+var viewer = false;
 var CurrentLevelData = null;
 var CurrentLevelId = null
 var isMouseDown = false;
+var mates = [ {"height":  8, "color": "yellow" },
+              {"height":  8, "color": "red" },
+              {"height": 22, "color": "blue"},
+              {"height":  8, "color": "magenta"} ];
 
 var ntsc_palette = {
     "0": "#000000",    "2": "#1a1a1a",    "4": "#393939",    "6": "#5b5b5b",    "8": "#7e7e7e",    "a": "#a2a2a2",    "c": "#c7c7c7",    "e": "#ededed",    
@@ -132,7 +137,8 @@ function addRoom(element){
 function pfBitClicked(cell_element) {
     var block_id = parseInt( cell_element.index() / 8 ) + cell_element.closest("tr").index() * 4;
     var bit_id =  cell_element.index() % 8;
-    var room_id = parseInt(cell_element.closest("td.grid").attr('id').replace("Room_",""));
+    var room_element = cell_element.closest("td.grid");
+    var room_id = parseInt(room_element.attr('id').replace("Room_",""));
     var room = CurrentLevelData[room_id];
     var mask = (block_id % 2 == 0)?(2 ** (7-bit_id)):(2 ** bit_id);
     var selected_tool = $("select#edittool option:checked").val();
@@ -152,7 +158,7 @@ function pfBitClicked(cell_element) {
             cell_element.removeClass().addClass("color_ntsc_" + pf_row_color.toString(16));
             room.pf[block_id] = room.pf[block_id] | mask;
         }
-    }else if(selected_tool == 6){ // edit room form
+    }else if(selected_tool == 3){ // edit room form
         $("#room_form_room_id").val(room_id);
 
         var ntsc_colors = room.color_0;
@@ -181,15 +187,22 @@ function pfBitClicked(cell_element) {
         $("#room_form_wall_h").val( room.interior[5] );
         $("#room_form_wall_x").val( room.interior[6] );
         $("#room_form_wall_y").val( room.interior[7] );
+        $("#room_form_wall_2_x").val( room.interior.length>8?room.interior[8]:200 );
+        $("#room_form_wall_2_y").val( room.interior.length>8?room.interior[9]:200 );
         $('#room_form_first_last').prop('checked', ( room.first_last == 1) );
 
-        
-
         $("#room_editor").show();
+    }else if(selected_tool == 7){
+        CurrentLevelData.splice(room_id, 1);
+        room_element.removeAttr("id title").empty().append('<span onclick="addRoom(this)" class="w3-button w3-blue">+Room</span>');
+        $( "td.grid[id^='Room_']" ).each(function(){
+            var this_room_id = parseInt($(this).attr('id').replace("Room_",""));
+            if (this_room_id > room_id ){
+                this_room_id--;
+                $(this).attr('id', "Room_" + this_room_id).attr('title', "Room " + this_room_id);
+            }
+        });
     }
-
-    console.log(room.interior);
-    console.log("def pf: " + room.pf[block_id] + " selected_tool " + selected_tool);
 
 }
 
@@ -213,6 +226,12 @@ function modifyRoomData() {
     room.color_1[1] = getPALcolor($("#room_form_color_pal_middle").val());
     room.color_1[5] = getPALcolor($("#room_form_color_pal_bottom").val());
 
+    if($('#room_form_change_all_rooms_color').prop('checked') ){
+        $.each(CurrentLevelData, function( index, _room ) {
+            _room.color_0 = room.color_0.slice();
+            _room.color_1 = room.color_1.slice();
+        });
+    }
 
     room.interior[0] = ($("#room_form_mate_type").val() & 3 ) +  ( $("#room_form_mate_range").val() & 0xFC);
     room.interior[1] = parseInt($("#room_form_mate_x").val());
@@ -223,6 +242,8 @@ function modifyRoomData() {
     room.interior[5] = parseInt($("#room_form_wall_h").val());
     room.interior[6] = parseInt($("#room_form_wall_x").val());
     room.interior[7] = parseInt($("#room_form_wall_y").val());
+    room.interior[8] = parseInt($("#room_form_wall_2_x").val());
+    room.interior[9] = parseInt($("#room_form_wall_2_y").val());
     room.first_last = $('#room_form_first_last').prop('checked') ? 1 : 0;
 
     $("#room_editor").hide();
@@ -231,13 +252,14 @@ function modifyRoomData() {
 
 
 
-function renderSmallRoom( room ){ 
+function renderSmallRoom( room ){
     var wall_pos_x = room.interior[6] - 15;
     var wall_pos_y = room.interior[7];
+    var wall_pos_2_x = room.interior[8] - 15;
+    var wall_pos_2_y = room.interior[9];
     var mate_pos_x = room.interior[1] - 15;
     var mate_pos_y = room.interior[2];
-    var mate_type = (room.interior[0] & 3);
-    var mate_colors = ["yellow", "red", "blue", "magenta" ];
+    var mate = mates[(room.interior[0] & 3)];
     var ret = '';
     ret += '<table border="0" cellpadding="0" cellspacing="0"><tr>';
     color_row = 0;
@@ -261,13 +283,28 @@ function renderSmallRoom( room ){
                (((room.interior[3] & 2 ) == 0 && room.interior[3] > 2  ) ? ' move' :'') +
                '"' +
                ' style="width: ' + Math.pow(2, (room.interior[4] >> 4 )) + 'px;' +
-               ' top: -' + ( 92.5 - wall_pos_y ) + 'px;' +
+               ' top: -' + ( 70 + room.interior[5] - wall_pos_y ) + 'px;' +
+               ' height: ' + room.interior[5] + 'px;' +
+               ' margin-bottom: -' + room.interior[5] + 'px;' +
                ' left: ' + wall_pos_x + 'px;"></div>';
     }
+    if(wall_pos_2_x >= 0 &&  wall_pos_2_x <= 144){
+        ret += '<div class="brk_wall color_ntsc_' + room.color_0[1].toString(16) + 
+               (((room.interior[3] & 2 ) == 2 ) ? ' blink2' :'') +
+               (((room.interior[3] & 2 ) == 0 && room.interior[3] > 2  ) ? ' move' :'') +
+               '"' +
+               ' style="width: ' + Math.pow(2, (room.interior[4] >> 4 )) + 'px;' +
+               ' top: -' + ( 70 + room.interior[5] - wall_pos_2_y ) + 'px;' +
+               ' height: ' + room.interior[5] + 'px;' +
+               ' margin-bottom: -' + room.interior[5] + 'px;' +
+               ' left: ' + wall_pos_2_x + 'px;"></div>';
+    }
     if(mate_pos_y < 200 && mate_pos_x >= 0 &&  mate_pos_x <= 144){
-        ret += '<div class="enemy" style="left: ' + mate_pos_x + 'px; ' + 
-                'top: -' + ( 92.5 - mate_pos_y ) + 'px; ' +
-                'background-color: ' + mate_colors[mate_type] + '"></div>';
+        ret += '<div class="enemy" style="left: ' + mate_pos_x + 'px;' + 
+                ' top: -' + ( 70 + mate.height - mate_pos_y ) + 'px;' +
+                ' height: ' + mate.height + 'px;' +
+                ' margin-bottom: -' + mate.height + 'px;' +
+                ' background-color: ' + mate.color + '"></div>';
     }
     return ret;
 }
@@ -337,12 +374,20 @@ function loadLevel(level_nr){
     });
 }
 
-function loadLevels(){
+function loadLevels(is_public){
+    if(is_public){
+        tCell = '<td class="grid"></td>';
+        viewer = true;
+    }
+
     $.get( "./api.php?route=get_levels", function( data ) {
         $('#NaviBox').empty();
         $.each(data, function( key, level_id ) {
             $('#NaviBox').append('<button class="w3-bar-item w3-button" name="level" onClick="loadLevel(' + level_id  + ')" value="Level_' + level_id + '">Level ' + level_id + '</button>');
         })
+        if(data.length > 0){
+            loadLevel(1);
+        }
     })
 }
 
