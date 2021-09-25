@@ -16,7 +16,7 @@ function getLevelNrListByUserName($username, $base_path){
 
 
 // load game menu ( max public levels 3xBCD and max private levels 3xBCD)
-$db = new mysqli("db5002503165.hosting-data.io", "dbu1017556", "N49e7U#8HGRndsRJJ", "dbs1992087");
+$db = new mysqli("DB-Server", "DB-User", "passwort", "Database");
 
 $query = "SELECT users.username FROM users, plusrom_devices WHERE plusrom_devices.user_id = users.id AND plusrom_devices.device_hash = '".$Request->device["id"]."' ";
 $result = $db->query($query);
