@@ -4,6 +4,8 @@
    set romsize 16kSC
    set smartbranching on
 
+;#region "Defines and Constants"
+
    const pfres=4
    const pfscore=1
    const scorebkcolor=$08
@@ -43,8 +45,9 @@
    def bonus_hit_air_missile=40
    def bonus_hit_tank=60
    def bonus_man_rescue=150
+;#endregion
 
-;  NTSC constants and colors
+;#region "NTSC Constants and Colors"
    ; requests 
    const req_load        = 0
    const req_level_up    = 1
@@ -185,9 +188,9 @@
    const _FA = $FA
    const _FC = $FC
    const _FE = $FE
-
+;#endregion
 /*
-; PAL constants and colors
+;#region "PAL Constants and Colors"
    ; requests 
    const req_load        = 128 ; PAL x+128
    const req_level_up    = 129
@@ -328,9 +331,9 @@
    const _FA = $2A
    const _FC = $2C
    const _FE = $2E
-
+;#endregion
 */
-; Variables
+;#region "Zeropage Variables"
    dim _sc1 = score
    dim _sc2 = score+1
    dim _sc3 = score+2
@@ -423,21 +426,22 @@
 
    dim bonus_bcd_counter  = var13
 
-; var14 and var15 for background music test
+   ; var14 and var15 for background music test
 
    dim next_shoot_rand    = var16
 
    dim Game_Status        = var47
 
 
-; Move text of Text Minikernel to SC RAM, so message could be loaded from backend
-; or message can be modified by code (e.g. counter how many men left to rescue)  
-;   dim w_textArea_1 = w000
-;   dim r_textArea_1 = r000
-;   dim text_strings = r000
+   ; Move text of Text Minikernel to SC RAM, so message could be loaded from backend
+   ; or message can be modified by code (e.g. counter how many men left to rescue)  
+   ;   dim w_textArea_1 = w000
+   ;   dim r_textArea_1 = r000
+   ;   dim text_strings = r000
+;#endregion
 
-
-; SuperChip RAM used for room definitions before playfield area (w112/r112)
+;#region "SuperChip RAM Variables"
+   ; used for room definitions before playfield area (w112/r112)
    dim w_room_definition_start      = w093
 
    dim r_level_bonus_bcd_points     = r093
@@ -481,7 +485,10 @@
 
    dim r_Bit0_room_type_top         = r_BitOp_room_type
    dim w_Bit0_room_type_top         = w_BitOp_room_type
-
+;#endregion
+ 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;#region "Bank 1"
 
 _Start
    asm
@@ -496,6 +503,7 @@ end
    WriteSendBuffer = req_load_menu : _Bit5_Request_Pending{5} = 1 : COLUP0 = _1C : scorecolor = _0E
    score = 1
    gamenumber = 1 : missile0height = 1 
+   _Bit7_FireB_Restrainer{7} = 1
    new_room_player1y = player_min_y : Safe_Point_P1_y = player_min_y
    new_room_player1x = 30 : player1x = 30 : Safe_Point_P1_x = 30
    AUDV0 = 0 : AUDV1 = 0 : frame_counter = 0 : player0x = 0 : bally = 0 : player1y = 0 
@@ -520,8 +528,7 @@ end
    goto _titlescreen_menu bank2
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; Main Loop
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;#region "Main Loop"
 
 __Main_Loop
    if switchreset then goto _Reset_To_Start
@@ -696,16 +703,16 @@ _Skip_enemy
    if _Bit5_Request_Pending{5} then temp4 = SWCHA : goto _skip_game_action ; game over screen or wait for new room
 
    ; 0=run, 1=game_over , 2=level finished, 3=heli_explosion
-   on Game_Status goto _game_action _skip_game_action _Level_Finished_loop _Explosion_loop
+   on Game_Status goto _game_action _game_over_action _Level_Finished_loop _Explosion_loop
 
 _game_action
 
-   if frame_counter then _Skip_dec_game_counter
+   if frame_counter then _Skip_dec_bonus_and_fuel
    if bonus_bcd_counter then dec bonus_bcd_counter = bonus_bcd_counter - 1
 
    if pfscore2 then pfscore2 = pfscore2 / 2
 
-_Skip_dec_game_counter
+_Skip_dec_bonus_and_fuel
 
    if !pfscore2 && !_Ch0_Sound then _Ch0_Sound = 4 : _Ch0_Duration = 1 : _Ch0_Counter = 0
 
@@ -854,7 +861,7 @@ __Skip_Shot_Enemy
    ;  Clears missile0 bit and moves missile0 off the screen.
    _BitOp_M0_Dir = 0 : missile0x = 200 : missile0y = 200
    ; clear enemy shot:
-   _BitOp_Ball_Shot_Dir = 0 : ball_shoot_x = 200 : ball_shoot_y = 200
+   if _BitOp_Ball_Shot_Dir then _BitOp_Ball_Shot_Dir = 0 : bally = 0
 
    ;  Turns on sound effect and clear wall from screen, if it is not a solid wall/laser.
    if r_extra_wall_type_and_range{0} then __Skip_Shot_Extra_Wall
@@ -882,19 +889,37 @@ __Skip_P1_Touched_P0
    if collision(player1,ball) || collision(player1,playfield) then goto _Set_Explosion
 
 
-   _BitOp_P1_Dir = _BitOp_P1_Dir & $F0 ; delete old directions (do we still need this?)
+;   _BitOp_P1_Dir = _BitOp_P1_Dir & $F0 ; delete old directions (do we still need this?)
 
-   if joy0up && pfscore2 then P1y_velocity = 0.0 : x = 0 : player1y = player1y - 1 : _Bit0_P1_Dir_Up{0} = 1 : goto skip_gravity
+;   if joy0up && pfscore2 then P1y_velocity = 0.0 : x = 0 : player1y = player1y - 1 : _Bit0_P1_Dir_Up{0} = 1 : goto skip_gravity
+   temp4 = _BitOp_P1_Dir;
+   _BitOp_P1_Dir = 0 ; delete old directions
+   if !joy0up || !pfscore2 then _skip_joystick_up
+   if temp4{0} || gamenumber{0} then player1y = player1y - 1
+   P1y_velocity = 0.0 : x = 0 : _Bit0_P1_Dir_Up{0} = 1 : goto skip_gravity
+_skip_joystick_up
+
+
    if joy0down then player1y = player1y + 1 : _Bit1_P1_Dir_Down{1} = 1
 
+   if frame_counter{0} && !gamenumber{0} then skip_gravity
    rem apply gravity
    P1y_velocity = P1y_velocity + gravity_player1
    P1y_position = P1y_position + P1y_velocity
 
 skip_gravity
 
-   if joy0left then _Bit6_Flip_P1{6} = 1 : _Bit2_P1_Dir_Left{2} = 1 : player1x = player1x - 1 : goto _skip_move
-   if joy0right then _Bit6_Flip_P1{6} = 0 : _Bit3_P1_Dir_Right{3} = 1 : player1x = player1x + 1
+;   if joy0left then _Bit6_Flip_P1{6} = 1 : _Bit2_P1_Dir_Left{2} = 1 : player1x = player1x - 1 : goto _skip_move
+   if !joy0left then _skip_joystick_left
+   if temp4{2} || gamenumber{0} then player1x = player1x - 1
+   _Bit6_Flip_P1{6} = 1 : _Bit2_P1_Dir_Left{2} = 1 : goto _skip_move
+_skip_joystick_left
+
+;   if joy0right then _Bit6_Flip_P1{6} = 0 : _Bit3_P1_Dir_Right{3} = 1 : player1x = player1x + 1
+   if !joy0right then _skip_move
+   if temp4{3} || gamenumber{0} then player1x = player1x + 1
+   _Bit6_Flip_P1{6} = 0 : _Bit3_P1_Dir_Right{3} = 1
+
 _skip_move
 
    ; dont leave top rooms to the top.
@@ -1043,7 +1068,8 @@ __Clear_Ch_0
 __Skip_Ch_0
 
 
-
+   ; Skip rotor sound when not in game run mode (Game_Status = 0)
+   if Game_Status then AUDV1 = 0 : AUDC1 = 0 : AUDF1 = 0 : goto __Skip_Ch_1
 
    ;```````````````````````````````````````````````````````````````
    ;  Decreases the channel 1 duration counter.
@@ -1110,10 +1136,13 @@ __Skip_Ch_1
    drawscreen
 
    goto __Main_Loop
+;#endregion
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; Functions / Subroutines
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;#region "Functions / Subroutines"
+_game_over_action
+   if joy0fire then goto _Reset_To_Start
+   goto _skip_game_action
 
 _Level_Finished_loop
    ; points for timer point left
@@ -1182,11 +1211,11 @@ _explosion_3_p1
    %10010001
 end
 
-;   player1pointerlo = rand16/2
 _End_Explosion_Definition
    if frame_counter = 0 then Game_Status = game_state_run : goto _Decrease_live_counter else goto _skip_game_action
 
 _Set_Explosion
+   if _BitOp_Ball_Shot_Dir then _BitOp_Ball_Shot_Dir = 0 : bally = 0
    _Ch0_Sound = 1 : _Ch0_Duration = 1 : _Ch0_Counter = 0 : frame_counter = 31
    Game_Status = game_state_heli_explosion
    goto _skip_game_action
@@ -1299,10 +1328,10 @@ _Reset_To_Start
     LDA	ReceiveBuffer   		; 4
 end
    goto _Reset_To_Start; toDo wait for end of response with timeout will need drawscreen
+;#endregion
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; Data Tables
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;#region "Data Tables"
 
 ;  Sound data for shot hitting wall.
    data _SD_Shot_Wall
@@ -1439,15 +1468,15 @@ end
    1, 14, 30, 1
    0, 0, 0, 8
 */
+;#endregion
 
+;#endregion
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; Bank 2
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;#region "Bank 2"
 
    bank 2
 
-; Title screen and menu
 _titlescreen_menu
    COLUBK = _00
 
@@ -1474,7 +1503,7 @@ _Skip_Read_Menu_Response
    if joy0up then score = score + 1 : delay_counter = 5
 
 
-   if gamenumber > 2 then _User_Level_Compare 
+   if gamenumber > 4 then _User_Level_Compare 
    ; asm compare of a 3 bcd number, adapted by Karl G with input from bogax.
    asm
    sed                              ; Set the Decimal Mode Flag
@@ -1506,10 +1535,11 @@ _Level_Reset
    score = 1
 
 _Skip_Level_Reset
-   if gamenumber < 3 && _sc1 = 0 && _sc2 = 0 && _sc3 = 0 then _sc1 = max_pub_level_bcd1 : _sc2 = max_pub_level_bcd2 : _sc3 = max_pub_level_bcd3
-   if gamenumber > 2 && _sc1 = 0 && _sc2 = 0 && _sc3 = 0 then _sc1 = max_priv_level_bcd1 : _sc2 = max_priv_level_bcd2 : _sc3 = max_priv_level_bcd3
+   if gamenumber < 5 && _sc1 = 0 && _sc2 = 0 && _sc3 = 0 then _sc1 = max_pub_level_bcd1 : _sc2 = max_pub_level_bcd2 : _sc3 = max_pub_level_bcd3
+   if gamenumber > 4 && _sc1 = 0 && _sc2 = 0 && _sc3 = 0 then _sc1 = max_priv_level_bcd1 : _sc2 = max_priv_level_bcd2 : _sc3 = max_priv_level_bcd3
 
-   if switchselect then gamenumber = gamenumber + 1 : delay_counter = 20 : if gamenumber > 4 && has_private_levels then gamenumber = 1 else if gamenumber > 2 && !has_private_levels then gamenumber = 1
+   if has_private_levels then temp4 = 8 else temp4 = 4
+   if switchselect then gamenumber = gamenumber + 1 : delay_counter = 20 : if gamenumber > temp4 then gamenumber = 1
    if !joy0fire then _Bit7_FireB_Restrainer{7} = 0 : goto _titlescreen_menu
    if _Bit7_FireB_Restrainer{7} then goto _titlescreen_menu
 
@@ -1536,8 +1566,16 @@ end
    asm
    include "titlescreen/asm/titlescreen.asm"
 end
+;#endregion
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;#region "Bank 3"
 
   bank 3
+;#endregion
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;#region "Bank 4"
 
   bank 4
 
@@ -1573,5 +1611,6 @@ end
 ; define PlusROM backend URL here
 ; don't let your program flow run into this code
  asm
- SET_PLUSROM_API "a.php", "ca.firmaplus.de"
+ SET_PLUSROM_API "a2.php", "ca.firmaplus.de"
 end
+;#endregion
