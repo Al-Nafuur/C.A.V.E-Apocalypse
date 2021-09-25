@@ -710,7 +710,7 @@ _game_action
    if frame_counter then _Skip_dec_bonus_and_fuel
    if bonus_bcd_counter then dec bonus_bcd_counter = bonus_bcd_counter - 1
 
-   if pfscore2 then pfscore2 = pfscore2 / 2
+   if !bonus_bcd_counter{0} then pfscore2 = pfscore2 / 2
 
 _Skip_dec_bonus_and_fuel
 
@@ -889,35 +889,30 @@ __Skip_P1_Touched_P0
    if collision(player1,ball) || collision(player1,playfield) then goto _Set_Explosion
 
 
-;   _BitOp_P1_Dir = _BitOp_P1_Dir & $F0 ; delete old directions (do we still need this?)
-
-;   if joy0up && pfscore2 then P1y_velocity = 0.0 : x = 0 : player1y = player1y - 1 : _Bit0_P1_Dir_Up{0} = 1 : goto skip_gravity
    temp4 = _BitOp_P1_Dir;
    _BitOp_P1_Dir = 0 ; delete old directions
    if !joy0up || !pfscore2 then _skip_joystick_up
-   if temp4{0} || gamenumber{0} then player1y = player1y - 1
+   if temp4{0} || !gamenumber{0} then player1y = player1y - 1
    P1y_velocity = 0.0 : x = 0 : _Bit0_P1_Dir_Up{0} = 1 : goto skip_gravity
 _skip_joystick_up
 
 
    if joy0down then player1y = player1y + 1 : _Bit1_P1_Dir_Down{1} = 1
 
-   if frame_counter{0} && !gamenumber{0} then skip_gravity
+   if frame_counter{0} && gamenumber{0} then skip_gravity
    rem apply gravity
    P1y_velocity = P1y_velocity + gravity_player1
    P1y_position = P1y_position + P1y_velocity
 
 skip_gravity
 
-;   if joy0left then _Bit6_Flip_P1{6} = 1 : _Bit2_P1_Dir_Left{2} = 1 : player1x = player1x - 1 : goto _skip_move
    if !joy0left then _skip_joystick_left
-   if temp4{2} || gamenumber{0} then player1x = player1x - 1
+   if temp4{2} || !gamenumber{0} then player1x = player1x - 1
    _Bit6_Flip_P1{6} = 1 : _Bit2_P1_Dir_Left{2} = 1 : goto _skip_move
 _skip_joystick_left
 
-;   if joy0right then _Bit6_Flip_P1{6} = 0 : _Bit3_P1_Dir_Right{3} = 1 : player1x = player1x + 1
    if !joy0right then _skip_move
-   if temp4{3} || gamenumber{0} then player1x = player1x + 1
+   if temp4{3} || !gamenumber{0} then player1x = player1x + 1
    _Bit6_Flip_P1{6} = 0 : _Bit3_P1_Dir_Right{3} = 1
 
 _skip_move
@@ -1611,6 +1606,6 @@ end
 ; define PlusROM backend URL here
 ; don't let your program flow run into this code
  asm
- SET_PLUSROM_API "a2.php", "ca.firmaplus.de"
+ SET_PLUSROM_API "a.php", "ca.firmaplus.de"
 end
 ;#endregion
