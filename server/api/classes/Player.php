@@ -6,7 +6,7 @@ class Player {
 
     function __construct($device_hash) {
         $this->device_hash = $device_hash;
-        $this->db = new mysqli("db5002503165.hosting-data.io", "dbu1017556", "N49e7U#8HGRndsRJJ", "dbs1992087");
+        $this->db = new mysqli("DB-Server", "DB-User", "passwort", "Database");
         $this->get_player_data();
     }
 
