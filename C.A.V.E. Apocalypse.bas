@@ -395,6 +395,7 @@
 
    rem Various game states
    dim _Bit_Game_State          = y
+   dim _Bit0_Rotor_Sound_On     = y
 
    dim _Bit2_roommate_Dir       = y  ; direction of enemy (P0) or soldiers (P0), (0=right, 1=left)
    dim _Bit3_Safe_Point_reached = y
@@ -502,11 +503,12 @@ end
 
    WriteSendBuffer = req_load_menu : _Bit5_Request_Pending{5} = 1 : COLUP0 = _1C : scorecolor = _0E
    score = 1
-   gamenumber = 1 : missile0height = 1 
+   gamenumber = 1 : missile0height = 1 : _Ch1_Duration = 1
    _Bit7_FireB_Restrainer{7} = 1
    new_room_player1y = player_min_y : Safe_Point_P1_y = player_min_y
    new_room_player1x = 30 : player1x = 30 : Safe_Point_P1_x = 30
-   AUDV0 = 0 : AUDV1 = 0 : frame_counter = 0 : player0x = 0 : bally = 0 : player1y = 0 
+   AUDF1 = 31
+   AUDV0 = 0 : AUDV1 = 0 : AUDC1 = 0 : frame_counter = 0 : player0x = 0 : bally = 0 : player1y = 0 
    missile0x = 200 : missile0y = 200 : w_extra_wall_startpos_1_x = 200 : w_roommate_startpos_y = 200 : player0y = 200
 
 ; set default text for Text Minikernel in SC RAM 
@@ -1064,7 +1066,7 @@ __Skip_Ch_0
 
 
    ; Skip rotor sound when not in game run mode (Game_Status = 0)
-   if Game_Status then AUDV1 = 0 : AUDC1 = 0 : AUDF1 = 0 : goto __Skip_Ch_1
+   if Game_Status then AUDV1 = 0 : goto __Skip_Ch_1
 
    ;```````````````````````````````````````````````````````````````
    ;  Decreases the channel 1 duration counter.
@@ -1074,42 +1076,17 @@ __Skip_Ch_0
    ;```````````````````````````````````````````````````````````````
    ;  Skips channel 1 if duration counter is greater than zero.
    ;
-   if _Ch1_Duration then goto __Skip_Ch_1
+   if _Ch1_Duration then __Skip_Ch_1
 
+   if _Bit0_Rotor_Sound_On{0} then _Ch1_Duration = 1 : AUDV1 = 8 : goto __Flip_Rotor_Sound
+   AUDV1 = 0
+   if ! _BitOp_P1_Dir then _Ch1_Duration = 16 : goto __Flip_Rotor_Sound
+   if _Bit0_P1_Dir_Up{0} then _Ch1_Duration = 10 : goto __Flip_Rotor_Sound
+   if _Bit1_P1_Dir_Down{1} then _Ch1_Duration = 18 : goto __Flip_Rotor_Sound
+   _Ch1_Duration = 12
 
-
-   ;***************************************************************
-   ;
-   ;  Channel 1 background music.
-   ;
-   ;```````````````````````````````````````````````````````````````
-   ;  Retrieves first part of channel 1 data.
-   ;
-   temp4 = sread(_SD_Music01)
-
-   ;```````````````````````````````````````````````````````````````
-   ;  Checks for end of data.
-   ;
-   if temp4 = 255 then goto __BG_Music_Setup_01
-
-   ;```````````````````````````````````````````````````````````````
-   ;  Retrieves more channel 1 data.
-   ;
-   temp5 = sread(_SD_Music01)
-   temp6 = sread(_SD_Music01)
-
-   ;```````````````````````````````````````````````````````````````
-   ;  Plays channel 1.
-   ;
-   AUDV1 = temp4
-   AUDC1 = temp5
-   AUDF1 = temp6
-
-   ;```````````````````````````````````````````````````````````````
-   ;  Sets duration.
-   ;
-   _Ch1_Duration = sread(_SD_Music01)
-
+__Flip_Rotor_Sound
+   _Bit0_Rotor_Sound_On = _Bit0_Rotor_Sound_On ^ 1 ; flip Rotor sound
 
 
    ;***************************************************************
@@ -1438,31 +1415,6 @@ end
    255
 end
 
-
-__BG_Music_Setup_01
-
-   sdata _SD_Music01 = var14
-   8, 15, 30, 4
-   0, 0, 0, 16
-  255
-end
-
-   _Ch1_Duration = 1
-
-   goto __Skip_Ch_1
-/*
-   8, 6, 29, 4
-
-   15, 14, 30, 1
-   14, 14, 30, 1
-   13, 14, 30, 1
-   11, 14, 30, 1
-   9, 14, 30, 1
-   7, 14, 30, 1
-   4, 14, 30, 1
-   1, 14, 30, 1
-   0, 0, 0, 8
-*/
 ;#endregion
 
 ;#endregion
@@ -1556,7 +1508,7 @@ _Skip_Level_Reset
    lda	#<(r_room_color_middle-132+pfres*pfwidth)
    sta	pfcolortable
 end
-   goto __BG_Music_Setup_01 bank1
+   goto __Skip_Ch_1 bank1
 
    asm
    include "titlescreen/asm/titlescreen.asm"
