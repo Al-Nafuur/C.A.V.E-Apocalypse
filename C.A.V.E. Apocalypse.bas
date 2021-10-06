@@ -427,7 +427,7 @@
 
    dim bonus_bcd_counter  = var13
 
-   ; var14 and var15 for background music test
+   dim enemy_game_state  = var14
 
    dim next_shoot_rand    = var16
 
@@ -516,16 +516,7 @@ end
 ;   w006 = #_sp : w007 = #__L : w008 = #__E : w009 = #__F : w010 = #__T : w011 = #_sp
 
    pfclear
-   player1color:
-   _1E
-   _82
-   _84
-   _46
-   _44
-   _42
-   _12
-   _08
-end
+   gosub _Set_Player_1_Colors
 
    goto _titlescreen_menu bank2
 
@@ -541,7 +532,15 @@ __Main_Loop
    COLUBK = _00
    TextColor = $0E
 
-   if frame_counter{2} then player1: 
+   if Game_Status <> 3 then _player_alive
+
+   temp4 = frame_counter / 8
+   on temp4 goto _explosion_4_p1 _explosion_4_p1 _explosion_3_p1 _explosion_2_p1 _explosion_2_p1 _explosion_1_p1 _explosion_1_p1 _explosion_0_p1  
+
+
+_player_alive
+   if !frame_counter{2} then _player_second_frame
+    player1: 
    %00011011
    %00001110
    %00011111
@@ -551,7 +550,9 @@ __Main_Loop
    %00001000
    %01111100
 end
-   if ! frame_counter{2} then player1:
+   goto _roommate_def_start
+_player_second_frame
+   player1:
    %00011011
    %00001110
    %00011111
@@ -561,11 +562,94 @@ end
    %00001000
    %00011111
 end
+   goto _roommate_def_start
 
+_explosion_0_p1
+   player1: 
+   %00000000
+   %01001010
+   %00111100
+   %00111100
+   %00111100
+   %00111100
+   %01010010
+   %00000000
+end
+   goto _End_Explosion_Definition
+_explosion_1_p1
+   player1: 
+   %01111110
+   %11011111
+   %11111111
+   %11111110
+   %11111111
+   %11111101
+   %11111111
+   %01111010
+end
+   goto _End_Explosion_Definition
+_explosion_2_p1
+   player1: 
+   %00000000
+   %00011000
+   %00111100
+   %00111100
+   %00101100
+   %00111100
+   %00011000
+   %00000000
+end
+   goto _End_Explosion_Definition
+_explosion_3_p1
+   player1: 
+   %00000000
+   %00000000
+   %00000000
+   %00010100
+   %00000000
+   %00101010
+   %00000100
+   %00010000
+   %00000000
+end
+   goto _End_Explosion_Definition
+_explosion_4_p1
+   player1:
+   %00000000
+   %00000000
+   %00000000
+   %00001000
+   %00100100
+   %01000000
+   %10001001
+   %01000000
+   %01000010
+   %00101100
+end
+
+_End_Explosion_Definition
+   if frame_counter then _roommate_def_start
+   Game_Status = game_state_run
+   gosub _Set_Player_1_Colors
+   goto _Decrease_live_counter
+
+
+
+_roommate_def_start
    on roommate_type goto _roommate_Enemy_def _roommate_Air_Missile_def _roommate_Fuel_def _roommate_Soldier_def
 
 _roommate_Enemy_def
-   if frame_counter{2} then player0: 
+   if !enemy_game_state then _enemy_alive
+
+   temp4 = frame_counter / 8
+   ; 5 Enemy explosion animation frames
+   ; ToDo: If the helicopter also explodes during the enemy explosion, the frame_counter is set to 63!
+   ; Workaround: Have 8 frames here too !
+   on temp4 goto _enemy_expl_0 _enemy_expl_1 _enemy_expl_2 _enemy_expl_3 _enemy_expl_4 _enemy_expl_4 _enemy_expl_4 _enemy_expl_4 
+
+_enemy_alive
+   if !frame_counter{2} then _enemy_second_frame
+   player0: 
    %01010101
    %10101010
    %11111111
@@ -574,7 +658,10 @@ _roommate_Enemy_def
    %00001000
    %00000100
 end
-   if !frame_counter{2} then player0: 
+   goto _roommate_End_def
+
+_enemy_second_frame
+   player0: 
    %10101010
    %01010101
    %11111111
@@ -585,7 +672,92 @@ end
 end
    goto _roommate_End_def
 
+_enemy_expl_0
+   player0: 
+   %00000000
+   %00000000
+   %00000000
+   %00000000
+   %00000000
+   %00001000
+   %00000010
+   %00100100
+   %10010000
+   %01000001
+   %00101000
+end
+   COLUP0 = _04
+   goto _roommate_explosion_End_def
+_enemy_expl_1
+   player0: 
+   %00000000
+   %00000000
+   %00000000
+   %00010100
+   %01000000
+   %00000000
+   %00100100
+   %00010000
+end
+   COLUP0 = _42
+   goto _roommate_explosion_End_def
+_enemy_expl_2
+   player0: 
+   %00000000
+   %00000000
+   %00111100
+   %01110110
+   %01111110
+   %01011110
+   %00101100
+end
+   COLUP0 = _46
+   goto _roommate_explosion_End_def
+_enemy_expl_3
+   player0: 
+   %01111101
+   %01111110
+   %11111111
+   %11111111
+   %11111111
+   %01101111
+   %00111110
+   %01011001
+   %10001000
+end
+   COLUP0 = _4A
+   goto _roommate_explosion_End_def
+_enemy_expl_4
+   player0:
+   %10101010
+   %01010101
+   %11111111
+   %00000000
+   %01000000
+   %01100000
+   %01110000
+   %01111000
+   %01000000
+end
+   COLUP0 = _4E
+
+_roommate_explosion_End_def
+
+   ;  Clear enemy or air missile from screen and reset player color if animation is over.
+   if !frame_counter then enemy_game_state = 0: COLUP0 = _1C : player0y = 200
+   goto _roommate_End_def
+
+
 _roommate_Air_Missile_def
+   if !enemy_game_state then _Air_Missile_alive
+
+   temp4 = frame_counter / 8   
+   ; 5 Enemy explosion animation frames
+   ; ToDo: If the helicopter also explodes during the enemy explosion, the frame_counter is set to 63!
+   ; Workaround: Have 8 frames here too !
+   on temp4 goto _enemy_air_expl_0 _enemy_air_expl_1 _enemy_air_expl_2 _enemy_air_expl_2 _enemy_air_expl_3 _enemy_air_expl_3 _enemy_air_expl_3 _enemy_air_expl_3 
+
+_Air_Missile_alive
    player0: 
    %10100000
    %01000000
@@ -601,6 +773,74 @@ _roommate_Air_Missile_def
    %00000010
 end
    goto _roommate_End_def
+
+_enemy_air_expl_0
+   player0: 
+   %00010000
+   %00000100
+   %00000001
+   %00000000
+   %00000000
+   %00000010
+   %00000000
+   %00000000
+   %01000000
+   %00000000
+   %10000001
+   %00101000
+end
+   COLUP0 = _04
+   goto _roommate_explosion_End_def
+_enemy_air_expl_1
+   player0: 
+   %00101000
+   %00000000
+   %00000001
+   %00000000
+   %00100000
+   %10000000
+   %00100000
+   %00000000
+   %00000000
+end
+   COLUP0 = _44
+   goto _roommate_explosion_End_def
+_enemy_air_expl_2
+   player0: 
+   %01111110
+   %11111111
+   %11011111
+   %11111111
+   %11111111
+   %11111111
+   %11111111
+   %11111111
+   %11111111
+   %11111101
+   %11111011
+   %01111110
+end
+   COLUP0 = _4A
+   goto _roommate_explosion_End_def
+_enemy_air_expl_3
+   player0: 
+   %01001000
+   %01010000
+   %11100000
+   %11111000
+   %11100000
+   %01010000
+   %01001000
+   %00000111
+   %00011111
+   %00000111
+   %00001010
+   %00010010
+end
+   COLUP0 = _4E
+   goto _roommate_explosion_End_def
+
+
 
 _roommate_Fuel_def
    player0: 
@@ -656,7 +896,7 @@ _roommate_End_def
    goto _Finish_Interior_Movement
 _Skip_Wall_Movement
 
-   if r_roommate_type_and_range < 4 then _Finish_Interior_Movement
+   if r_roommate_type_and_range < 4 || enemy_game_state then _Finish_Interior_Movement
    if _Bit2_roommate_Dir{2} then roommate_move_x = roommate_move_x - 1 else roommate_move_x = roommate_move_x + 1
    if roommate_move_x = r_roommate_type_and_range then _Bit2_roommate_Dir{2} = 1
    if !roommate_move_x then _Bit2_roommate_Dir{2} = 0
@@ -705,7 +945,7 @@ _Skip_enemy
    if _Bit5_Request_Pending{5} then temp4 = SWCHA : goto _skip_game_action ; game over screen or wait for new room
 
    ; 0=run, 1=game_over , 2=level finished, 3=heli_explosion
-   on Game_Status goto _game_action _game_over_action _Level_Finished_loop _Explosion_loop
+   on Game_Status goto _game_action _game_over_action _Level_Finished_loop _skip_game_action
 
 _game_action
 
@@ -719,7 +959,7 @@ _Skip_dec_bonus_and_fuel
    if !pfscore2 && !_Ch0_Sound then _Ch0_Sound = 4 : _Ch0_Duration = 1 : _Ch0_Counter = 0
 
    ;  Skips this section if Enemy shoot is moving.
-   if player0y = 200 then goto __Skip_Enemy_Fire
+   if player0y = 200 || enemy_game_state then goto __Skip_Enemy_Fire
    if _BitOp_Ball_Shot_Dir || roommate_type then goto __Skip_Enemy_Fire
    temp4 = frame_counter & 127
    if temp4 <> next_shoot_rand then goto __Skip_Enemy_Fire
@@ -850,8 +1090,10 @@ __Skip_Missile
    ;  Turns on sound effect.
    _Ch0_Sound = 1 : _Ch0_Duration = 1 : _Ch0_Counter = 0
    
-   ;  Clear enemy and air missile from screen.
-   player0y = 200 : w_roommate_startpos_y = 200 : if roommate_type then score = score + bonus_hit_air_missile else score = score + bonus_hit_tank
+   ; activate enemy explosion
+   enemy_game_state = 1 : frame_counter = 39 : w_roommate_startpos_y = 200
+   ; add bonus scores
+    if roommate_type then score = score + bonus_hit_air_missile else score = score + bonus_hit_tank
 
 __Skip_Shot_Enemy
 
@@ -1057,6 +1299,23 @@ __Skip_Ch0_Sound_003
 
 __Skip_Ch0_Sound_004
 
+   ;  Channel 0 sound effect 005.
+   ;  Helicopter Explosion.
+   ;  Skips this section if sound 005 isn't on.
+   if _Ch0_Sound <> 5 then goto __Skip_Ch0_Sound_005
+
+   temp4 = _SD_Helicopter_Explosion[_Ch0_Counter]
+   if temp4 = 255 then __Clear_Ch_0
+ 
+   AUDV0 = temp4
+ 
+   ;  Sets Duration.
+   _Ch0_Duration = 8 : _Ch0_Counter = _Ch0_Counter + 1
+
+   goto __Skip_Ch_0
+
+__Skip_Ch0_Sound_005
+
    ;  Clears channel 0.
 __Clear_Ch_0
    _Ch0_Sound = 0 : AUDV0 = 0
@@ -1130,65 +1389,36 @@ _bonus_sound_delay
    delay_counter = 25
    goto _skip_game_action
 
-_Explosion_loop
-   temp4 = frame_counter / 8
-
-   on temp4 goto _explosion_3_p1 _explosion_2_p1 _explosion_1_p1 _explosion_0_p1  
-
-_explosion_0_p1
-   player1: 
-   %00000000
-   %00000000
-   %00101000
-   %00010000
-   %00100100
-   %00000000
-   %00000000
-   %00000000
+_Set_Player_1_Colors
+      player1color:
+   _1E
+   _82
+   _84
+   _46
+   _44
+   _42
+   _12
+   _08
 end
-   goto _End_Explosion_Definition
-_explosion_1_p1
-   player1: 
-   %00000000
-   %01000010
-   %01000000
-   %00011000
-   %00000000
-   %01000010
-   %00000000
-   %00000000
-end
-   goto _End_Explosion_Definition
-_explosion_2_p1
-   player1: 
-   %10001001
-   %01010010
-   %00000000
-   %01000100
-   %00010000
-   %01000010
-   %10000001
-   %00000000
-end
-   goto _End_Explosion_Definition
-_explosion_3_p1
-   player1: 
-   %10010001
-   %01000010
-   %01010000
-   %10000001
-   %00000000
-   %00000000
-   %00010000
-   %10010001
-end
-
-_End_Explosion_Definition
-   if frame_counter = 0 then Game_Status = game_state_run : goto _Decrease_live_counter else goto _skip_game_action
+   return
 
 _Set_Explosion
    if _BitOp_Ball_Shot_Dir then _BitOp_Ball_Shot_Dir = 0 : bally = 0
-   _Ch0_Sound = 1 : _Ch0_Duration = 1 : _Ch0_Counter = 0 : frame_counter = 31
+   _Ch0_Sound = 5 : _Ch0_Duration = 1 : _Ch0_Counter = 0 : frame_counter = 63
+   AUDF0 = $1f : AUDC0 = 8
+      player1color:
+   _42
+   _44
+   _44
+   _46
+   _46
+   _44
+   _44
+   _42
+   _02
+   _02
+end
+
    Game_Status = game_state_heli_explosion
    goto _skip_game_action
 
@@ -1268,7 +1498,7 @@ _Add_Room_State
 ; and write to SC/playfield RAM 
 _Change_Room
    delay_counter = 2
-   player0y = 200 : ball_shoot_x = 200 : ball_shoot_y = 200 : missile0x = 200 : missile0y = 200
+   player0y = 200 : ball_shoot_x = 200 : ball_shoot_y = 200 : missile0x = 200 : missile0y = 200 : enemy_game_state = 0
    ; reset direction of enemy and wall to right, delete request pending
    ; _Bit2_roommate_Dir{2} = 0 : _Bit3_Safe_Point_reached{3} = 0 : _Bit4_Wall_Dir{4} = 0 : _Bit5_Request_Pending{5} = 0
    _Bit_Game_State = _Bit_Game_State & %11000011  
@@ -1415,6 +1645,10 @@ end
    255
 end
 
+;  Sound data for helicopter explosion (only audio volume for channel 0 "AUDV0").
+   data _SD_Helicopter_Explosion
+   15, 12, 10, 8, 10, 8, 8, 6, 4, 4, 8, 8, 6, 4, 2, 3, 255
+end
 ;#endregion
 
 ;#endregion
